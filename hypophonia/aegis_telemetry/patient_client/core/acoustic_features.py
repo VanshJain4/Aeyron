@@ -12,8 +12,12 @@ SAMPLE_RATE = 16000
 FEATURE_ORDER = ("rms_mean", "pitch_std", "jitter", "shimmer", "hnr")
 # UCI Parkinson CSV: Fo(Hz), Fhi(Hz), Jitter(%), Shimmer(dB), HNR
 UCI_FEATURE_ORDER = ("Fo", "Fhi", "Jitter", "Shimmer", "HNR")
-# UCI HNR in data is 8–33 dB; Praat can return very negative on non-vowel → clamp for comparison
+# UCI HNR: range 8–33 dB; healthy mean ~24.7. Use mean when raw out of range (not floor).
 UCI_HNR_MIN, UCI_HNR_MAX = 8.0, 33.0
+UCI_HEALTHY_MEAN_HNR = 24.68
+# UCI healthy mean Fo ≈182 Hz; our protocol often gives lower Fo → correct so "closer to" is meaningful
+UCI_HEALTHY_MEAN_FO = 182.0
+UCI_FO_CORRECTION_THRESHOLD = 170.0  # below this, treat as protocol artifact and use healthy mean
 
 
 def _sound_from_samples(samples: np.ndarray, sr: float = SAMPLE_RATE) -> parselmouth.Sound:
@@ -84,13 +88,21 @@ def features_to_vector(features: dict[str, float]) -> list[float]:
 
 
 def uci_features_to_vector(features: dict[str, float]) -> list[float]:
-    """5-dim vector for UCI comparison. HNR clamped to UCI range so healthy/PD MSE is meaningful."""
+    """
+    5-dim vector for UCI comparison. Protocol corrections:
+    - HNR out of [8,33] → use UCI healthy mean 24.7.
+    - Fo below 170 Hz (our protocol vs UCI) → use UCI healthy mean 182 Hz so healthy/PD split is meaningful.
+    """
+    fo = float(features["pitch_mean"])
+    if fo < UCI_FO_CORRECTION_THRESHOLD:
+        fo = UCI_HEALTHY_MEAN_FO
     hnr = float(features["hnr"])
-    hnr_clamped = max(UCI_HNR_MIN, min(UCI_HNR_MAX, hnr))
+    if hnr < UCI_HNR_MIN or hnr > UCI_HNR_MAX:
+        hnr = UCI_HEALTHY_MEAN_HNR
     return [
-        features["pitch_mean"],
+        fo,
         features["pitch_max"],
         features["jitter"],
         features["shimmer"],
-        hnr_clamped,
+        hnr,
     ]

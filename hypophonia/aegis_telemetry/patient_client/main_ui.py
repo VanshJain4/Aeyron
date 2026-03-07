@@ -36,6 +36,7 @@ def _format_detailed_report(
     out_healthy: dict,
     out_pd: dict,
     raw_hnr: float | None = None,
+    raw_fo: float | None = None,
 ) -> str:
     """Single detailed report: all numbers for personal + UCI (healthy vs PD)."""
     score_healthy = out_healthy.get("anomaly_score") or 0.0
@@ -47,10 +48,15 @@ def _format_detailed_report(
     mse_p = out_personal.get("anomaly_score") or 0.0
     ratio_p = (mse_p / th_p) if th_p and th_p > 0 else None
 
-    hnr_was_clamped = (
+    hnr_out_of_range = (
         raw_hnr is not None
         and len(uci_vec) == 5
         and (raw_hnr < 8.0 or raw_hnr > 33.0)
+    )
+    fo_corrected = (
+        raw_fo is not None
+        and len(uci_vec) >= 1
+        and abs(uci_vec[0] - raw_fo) > 1.0
     )
 
     lines = [
@@ -86,11 +92,16 @@ def _format_detailed_report(
     ])
     for name, val in zip(UCI_FEATURE_ORDER, uci_vec):
         lines.append(f"    {name:28s} : {val:.6f}")
-    if hnr_was_clamped:
-        lines.append(f"    (HNR clamped from raw {raw_hnr:.1f} to UCI range 8–33 dB)")
+    if hnr_out_of_range:
+        lines.append(f"    (HNR: raw {raw_hnr:.1f} dB out of range → set to UCI healthy mean 24.7 dB)")
+    if fo_corrected and raw_fo is not None:
+        lines.append(f"    (Fo: raw {raw_fo:.0f} Hz corrected to 182 Hz for UCI comparison.)")
     lines.append(f"  MSE vs healthy baseline      : {score_healthy:.6f}  (threshold: {th_h if th_h is not None else 'N/A'})")
     lines.append(f"  MSE vs PD baseline           : {score_pd:.6f}  (threshold: {th_pd if th_pd is not None else 'N/A'})")
     lines.append(f"  Closer to                    : {uci_closer} baseline")
+    if th_h and th_pd and score_healthy < th_h and score_pd < th_pd:
+        lines.append(f"  (Both MSEs below threshold — within normal variation for both cohorts.)")
+    lines.append(f"  (Recording protocol differs from UCI; not a clinical diagnosis.)")
     lines.extend([
         "",
         "───────────────────────────────────────────────────────────────",
@@ -141,6 +152,7 @@ def run_live(progress=gr.Progress()) -> tuple[str, tuple[int, np.ndarray] | None
             out_healthy=out_healthy,
             out_pd=out_pd,
             raw_hnr=feats.get("hnr"),
+            raw_fo=feats.get("pitch_mean"),
         )
         return report, (SAMPLE_RATE, samples)
     except Exception as e:
@@ -187,6 +199,7 @@ def run_from_file(audio_in, progress=gr.Progress()) -> str:
             out_healthy=out_healthy,
             out_pd=out_pd,
             raw_hnr=feats.get("hnr"),
+            raw_fo=feats.get("pitch_mean"),
         )
         return report
     except Exception as e:
