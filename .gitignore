@@ -1,2 +1,6 @@
 # Cloned external repo — use as reference, do not track
 SmartSpectra/
+
+# Environment (do not commit secrets)
+.env
+.env.local
