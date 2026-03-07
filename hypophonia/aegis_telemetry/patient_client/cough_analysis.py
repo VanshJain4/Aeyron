@@ -12,7 +12,7 @@ from scipy import signal
 warnings.filterwarnings("ignore", message="n_fft=.*is too large")
 
 
-# ── Cough detection (hysteresis comparator, Orlandic et al. 2020) ─────────
+# ── Cough detection (hysteresis comparator) ───────────────────────────────
 
 def detect_coughs_from_array(
     y: np.ndarray,

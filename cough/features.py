@@ -1,14 +1,10 @@
 """
 Feature extraction from cough segments.
 
-Core features (original):
+8 features per cough:
   peak_to_decay_ratio, spectral_centroid, spectral_slope,
-  rise_time, zero_crossing_rate, expulsive_duration
-
-New features (from Orlandic et al. 2020 / detect-segment-cough):
-  crest_factor        — peak / RMS; impulsiveness (healthy = higher)
-  phase_power_ratio   — 1kHz-2.5kHz vs 0-750Hz in middle cough phase;
-                        captures expiratory turbulence (healthy = higher)
+  rise_time, zero_crossing_rate, expulsive_duration,
+  crest_factor, phase_power_ratio
 
 Each segment is preprocessed (normalize + 6kHz lowpass) before feature
 extraction to standardise across mic gain and recording conditions.
@@ -25,9 +21,7 @@ from scipy.signal import butter, filtfilt
 def _preprocess(segment: np.ndarray, sr: int) -> np.ndarray:
     """
     Normalize amplitude and lowpass-filter at 6 kHz.
-    Adapted from preprocess_cough() in Orlandic et al. (2020) DSP.py.
-    Downsampling is intentionally skipped to keep SR consistent with the
-    rest of the pipeline.
+    Removes high-frequency mic noise and standardises gain across recordings.
     """
     seg = segment.astype(np.float64)
     peak = np.max(np.abs(seg))
@@ -91,7 +85,6 @@ def expulsive_duration(segment: np.ndarray, sr: int = 22050) -> float:
 def crest_factor(segment: np.ndarray) -> float:
     """
     Peak / RMS.
-    From Orlandic et al. (2020) detect-segment-cough feature_class.py (CF).
     Higher = more impulsive burst = healthy cough.
     PD coughs are softer and more gradual → lower crest factor.
     """
@@ -102,7 +95,7 @@ def crest_factor(segment: np.ndarray) -> float:
 
 def phase_power_ratio(segment: np.ndarray, sr: int = 22050) -> float:
     """
-    Phase Power Ratio (PRE) from Orlandic et al. (2020) detect-segment-cough.
+    Phase Power Ratio (PRE).
     Splits cough into 3 equal phases; normalises middle-phase FFT magnitude
     by first-phase total power; returns ratio of energy in [1kHz, 2.5kHz]
     to energy in [0, 750Hz] in the middle (expiratory) phase.

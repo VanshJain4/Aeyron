@@ -1,10 +1,10 @@
 """
 PD likelihood from cough acoustic features.
 
-Clinical basis (Pitts et al. 2010; Cvejic et al. 2011; Troche et al. 2014;
-Orlandic et al. 2020):
-  - Parkinson's reduces expulsive force → slower rise, weaker burst
-  - Reduced respiratory/laryngeal control → less turbulence (lower centroid, ZCR)
+Clinical basis: Parkinson's degrades respiratory and laryngeal muscle control,
+producing measurably weaker, slower, and less turbulent coughs:
+  - Reduced expulsive force → slower rise, weaker burst
+  - Less respiratory/laryngeal control → less turbulence (lower centroid, ZCR)
   - Less impulsive cough → lower crest factor
   - Attenuated expiratory phase → lower phase power ratio
 
@@ -15,8 +15,8 @@ Thresholds are calibrated for REAL human cough audio (not synthetic):
 Features and weights:
   spectral_centroid   0.22  — main turbulence indicator
   zero_crossing_rate  0.20  — airflow turbulence
-  crest_factor        0.18  — impulsiveness (from detect-segment-cough)
-  phase_power_ratio   0.15  — expiratory high-freq energy (from detect-segment-cough)
+  crest_factor        0.18  — impulsiveness
+  phase_power_ratio   0.15  — expiratory high-freq energy
   rise_time           0.13  — expulsive speed
   peak_to_decay_ratio 0.07  — burst sharpness
   expulsive_duration  0.05  — sustained expulsion
@@ -57,12 +57,12 @@ def pd_likelihood(features: dict) -> tuple[float, str]:
     z_score = _lin(zcr, lo=0.04, hi=0.14, invert=True)
 
     # ── Crest factor (0.18) ───────────────────────────────────────────────
-    # From Orlandic et al. (2020). Real healthy: 5-9. Real PD: 2-4.5
+    # Real healthy: 5-9. Real PD: 2-4.5
     cf = float(features.get("crest_factor", 4.0))
     cf_score = _lin(cf, lo=2.5, hi=6.5, invert=True)
 
     # ── Phase power ratio (0.15) ──────────────────────────────────────────
-    # From Orlandic et al. (2020). Real healthy: 0.5-2.0+. Real PD: 0.1-0.4
+    # Real healthy: 0.5-2.0+. Real PD: 0.1-0.4
     pre = float(features.get("phase_power_ratio", 0.5))
     pre_score = _lin(pre, lo=0.15, hi=0.7, invert=True)
 

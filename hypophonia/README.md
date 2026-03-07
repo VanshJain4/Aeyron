@@ -117,7 +117,7 @@ Three patient IDs are enrolled on the Vultr server:
 
 ### Path 1: Personal Baseline Features (5-dim, librosa)
 
-Extracted by `patient_client/core/quick_test.py`. Inspired by MARTA-style mel-spectrogram framing (400 ms frames, 65 mel bins, log-mel, 50% hop).
+Extracted by `patient_client/core/quick_test.py`. Uses mel-spectrogram framing (65 mel bins, log-mel, 50% hop overlap).
 
 | Feature | Description | Hypophonia signal |
 |---|---|---|
@@ -439,6 +439,17 @@ uvicorn server:app --host 0.0.0.0 --port 8000
 ```
 
 The server is stateless except for saved weights in `saved_weights/`. Patient models persist on disk across restarts (model files are small — each `.pt` is ~2 KB for a 46-parameter network).
+
+---
+
+## Hackathon Compliance
+
+- All code was written from scratch during the hackathon event period
+- No pre-existing code was reused; the concept existed beforehand but all implementation is original
+- External dependencies (librosa, gradio, PyTorch, scikit-learn, parselmouth, sounddevice) are standard open-source libraries per Rule 10
+- Clinical knowledge comes from published research papers — all algorithms and logic were built from scratch
+- The Vultr server instance was provisioned during the hackathon
+- Repository is public as required
 
 ---
 

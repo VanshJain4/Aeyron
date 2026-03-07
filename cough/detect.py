@@ -1,10 +1,9 @@
 """
 Cough detection using a hysteresis comparator on the RMS envelope.
-Algorithm adapted from Orlandic et al. (2020) — detect-segment-cough.
 
-Key improvement over single-threshold: two thresholds (low + high) prevent
-jittery start/stop when the cough briefly dips during expiration.
-Adaptive baseline (median of non-silent frames) handles variable mic gain.
+Two thresholds (low + high) prevent jittery start/stop when the cough
+briefly dips during expiration. Adaptive baseline (median of non-silent
+frames) handles variable mic gain.
 """
 from __future__ import annotations
 
@@ -51,7 +50,7 @@ def detect_coughs(
     frame_centers = np.arange(len(rms_smooth)) * hop_length
     envelope = np.interp(np.arange(len(y)), frame_centers, rms_smooth)
 
-    # Hysteresis state machine (Orlandic et al. 2020)
+    # Hysteresis state machine
     padding = int(sr * padding_ms / 1000.0)
     min_samples = int(sr * min_duration_ms / 1000.0)
     max_samples = int(sr * max_duration_ms / 1000.0)

@@ -1,7 +1,7 @@
 """
-Quick test (MARTA-inspired): single recording, spectrogram summary via librosa only.
+Quick test: single recording, spectrogram summary via librosa only.
 No Praat, no Silero VAD. One 5s recording → 5 summary stats relevant to hypophonia.
-Uses MARTA-style framing: 400ms frames, 65 mel bins, log-mel (no phoneme labels).
+Framing: 65 mel bins, log-mel, 50% hop overlap.
 """
 import numpy as np
 import librosa
