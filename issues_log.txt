@@ -1,0 +1,13 @@
+# Issues log
+
+## demo-app: Missing package product 'SmartSpectraSwiftSDK' (2026-03-07)
+
+- **Problem**: Xcode build failed with "Missing package product 'SmartSpectraSwiftSDK'" and "Unable to find module dependency: 'SmartSpectraSwiftSDK'"; Swift Previews also failed.
+- **Root cause**: demo-app.xcodeproj referenced the SmartSpectraSwiftSDK product but had no package reference (packageReferences was empty), so Xcode did not know where to find the SDK.
+- **Solution implemented**: Added XCLocalSwiftPackageReference pointing to ../sdk (SmartSpectra/swift/sdk, which contains Package.swift), added that ref to the project's packageReferences, and set the XCSwiftPackageProductDependency's package to that reference so the product resolves from the local SDK package.
+
+## Unify API key, SDK, bridge, and dashboard (2026-03-07)
+
+- **Problem**: Two disconnected paths (Python bridge vs Swift SDK), no single runbook, dashboard could not show whether data was accurate (SDK) or estimate (bridge); numbers appeared wrong without clear labeling.
+- **Root cause**: No `source` field in API; docs split across RUN_LIVE.md and RUN_WITH_SDK.md; dashboard did not distinguish SDK vs bridge.
+- **Solution implemented**: Added optional `source` to POST/GET vitals ("sdk" | "bridge" | "simulator"). Python bridge sends `source: "bridge"`, Swift AeyronBridge sends `source: "sdk"`, presage_simulator sends `source: "simulator"`. Created single runbook RUN.md (SDK primary, bridge fallback). Updated demo.html to show "Live (SDK) — accurate" vs "Live (camera estimate)" with Estimate badges for bridge path; symptom-oriented layout (HR, breathing, HRV, stress, emotion, risk) and source-based descriptions. RUN_LIVE.md and RUN_WITH_SDK.md now point to RUN.md. VALIDATION.md updated with note on SDK vs bridge.

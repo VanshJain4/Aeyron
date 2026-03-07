@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef } from "react";
 
 const TEAL = "#0D9488";
-const POLL_MS = 2000;
+const POLL_MS = Number(process.env.NEXT_PUBLIC_VITALS_POLL_MS) || 1000;
 const VITALS_URL = process.env.NEXT_PUBLIC_VITALS_API || "http://localhost:8000";
 
 export default function VitalsPanel() {
@@ -86,6 +86,14 @@ export default function VitalsPanel() {
       </div>
 
       <div style={styles.section}>
+        <span style={styles.label}>Breathing rate</span>
+        <span style={styles.value}>
+          {data.breathing_rate != null ? Math.round(data.breathing_rate) : "—"}
+        </span>
+        <span style={styles.unit}>/min</span>
+      </div>
+
+      <div style={styles.section}>
         <span style={styles.label}>Stress</span>
         <div style={styles.barWrap}>
           <div
@@ -98,6 +106,24 @@ export default function VitalsPanel() {
         </div>
         <span style={styles.unit}>{stressPct}%</span>
       </div>
+
+      {(data.face != null || data.face_emotion_variance != null) && (
+        <div style={styles.section}>
+          <span style={styles.label}>Face / emotion</span>
+          {data.face != null && (
+            <span style={styles.value}>
+              {data.face.expression} ({data.face.confidence != null ? (data.face.confidence * 100).toFixed(0) : "—"}%)
+            </span>
+          )}
+          <div style={styles.faceStats}>
+            <span>σ² = {data.face_emotion_variance != null ? data.face_emotion_variance.toFixed(3) : "—"}</span>
+            <span>σ = {data.face_emotion_std != null ? data.face_emotion_std.toFixed(3) : "—"}</span>
+          </div>
+          {(data.face_emotion_variance_breach || data.face_emotion_std_breach) && (
+            <span style={styles.breach}>Threshold breach</span>
+          )}
+        </div>
+      )}
 
       <div style={styles.riskSection}>
         <span style={styles.riskLabel}>Vitals risk</span>
@@ -177,6 +203,19 @@ const styles = {
     fontSize: "0.875rem",
     color: "#64748b",
     marginLeft: 4,
+  },
+  faceStats: {
+    fontSize: "0.7rem",
+    color: "#94a3b8",
+    marginTop: 4,
+    display: "flex",
+    gap: "1rem",
+  },
+  breach: {
+    display: "block",
+    fontSize: "0.7rem",
+    color: "#f87171",
+    marginTop: 4,
   },
   placeholder: {
     color: "#64748b",
