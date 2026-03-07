@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AEYRON Sentinel — Local demo</title>
+  <style>
+    /* Color system: semantic and polarity-friendly */
+    :root {
+      --bg-page: #0f172a;
+      --bg-panel: #1e293b;
+      --bg-muted: #334155;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+      --accent: #0d9488;
+      --accent-dim: #0f766e;
+      --success: #22c55e;
+      --success-dim: #16a34a;
+      --warning: #eab308;
+      --warning-dim: #ca8a04;
+      --danger: #ef4444;
+      --danger-dim: #dc2626;
+      --border: #475569;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 1rem;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-primary);
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.35rem; color: var(--accent); margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; }
+    .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      min-width: 280px;
+    }
+    .panel-title { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
+    .label { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px; display: block; }
+    .label-desc { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; margin-bottom: 0.25rem; }
+    .value { font-size: 1.35rem; font-weight: 600; color: var(--text-primary); }
+    .value--success { color: var(--success); }
+    .value--warning { color: var(--warning); }
+    .value--danger { color: var(--danger); }
+    .value--muted { color: var(--text-muted); font-weight: 500; }
+    .unit { font-size: 0.75rem; color: var(--text-secondary); margin-left: 4px; }
+    .section { margin-bottom: 1rem; }
+    .flag { color: var(--danger); margin-left: 4px; font-weight: 600; }
+    .risk { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+    .risk .value { font-size: 1.5rem; color: var(--accent); }
+    .source-live { color: var(--success); font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .source-sim { color: var(--danger); font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .source-other { color: var(--warning); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .camera-wrap {
+      position: relative;
+      background: var(--bg-muted);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      min-height: 260px;
+    }
+    .camera-caption { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0.75rem; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
+    .camera-wrap video { width: 100%; height: auto; display: block; }
+    .badge {
+      position: absolute; top: 8px; left: 8px;
+      background: var(--success); color: #fff; font-size: 0.7rem; font-weight: 700;
+      padding: 4px 8px; border-radius: 4px;
+    }
+    button {
+      display: block;
+      margin: 1rem auto;
+      padding: 10px 20px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-dim); }
+    button:disabled { opacity: 0.7; cursor: not-allowed; }
+    .error { color: var(--danger); font-size: 0.875rem; }
+    .waiting { color: var(--text-muted); font-size: 0.875rem; }
+    .bar-wrap { height: 10px; background: var(--bg-muted); border-radius: 5px; overflow: hidden; margin-top: 4px; }
+    .bar-fill { height: 100%; border-radius: 5px; transition: width 0.3s; }
+    .status-line { font-size: 0.8rem; margin-bottom: 0.5rem; }
+    .status-line .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+    .status-line .dot--ok { background: var(--success); }
+    .status-line .dot--warn { background: var(--warning); }
+    .status-line .dot--err { background: var(--danger); }
+    .legend { font-size: 0.7rem; color: var(--text-muted); margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
+    .legend span { margin-right: 1rem; }
+    .legend .c-s { color: var(--success); }
+    .legend .c-w { color: var(--warning); }
+    .legend .c-d { color: var(--danger); }
+    .estimate-badge { font-size: 0.65rem; color: var(--warning); font-weight: 600; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <h1>AEYRON Sentinel — Local demo</h1>
+  <p class="subtitle">Live vitals: use the Swift app (SDK) for accurate numbers, or the Python bridge for estimates. See backend/RUN.md.</p>
+
+  <div class="status-line">
+    <span class="dot dot--warn" id="status-dot"></span>
+    <span id="api-status">Checking backend…</span>
+    <span id="data-source" style="margin-left: 0.5rem;"></span>
+  </div>
+
+  <div class="row">
+    <div class="camera-wrap">
+      <p class="camera-caption">Optional: browser camera preview. The vitals below are computed by the <strong>bridge</strong> (Python script in a second terminal) using your Mac’s camera — not this feed.</p>
+      <span class="badge" id="live-badge" style="display: none;">Preview on</span>
+      <video id="video" autoplay playsinline muted style="display: none;"></video>
+      <button type="button" id="btn-camera">Start camera preview</button>
+      <p id="camera-error" class="error" style="display: none;"></p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Live vitals</div>
+      <div id="vitals-content">
+        <p class="waiting" id="vitals-waiting">Waiting for vitals…</p>
+        <div id="vitals-body" style="display: none;">
+          <div id="source-msg" class="section"></div>
+          <div class="section">
+            <span class="label">Heart rate</span><span id="hr-estimate-badge" class="estimate-badge" style="display: none;">Estimate</span>
+            <span class="label-desc" id="hr-desc">From face (pulse).</span>
+            <span class="value" id="hr">—</span><span class="unit">bpm</span>
+            <span id="hr-flag" class="flag" style="display: none;"> ⚠ outside 60–100</span>
+          </div>
+          <div class="section">
+            <span class="label">Breathing rate</span><span id="br-estimate-badge" class="estimate-badge" style="display: none;">Estimate</span>
+            <span class="label-desc" id="br-desc">From chest movement.</span>
+            <span class="value" id="br">—</span><span class="unit">breaths/min</span>
+          </div>
+          <div class="section">
+            <span class="label">HRV (heart rate variability)</span>
+            <span class="label-desc" id="hrv-desc">From SDK or placeholder (bridge).</span>
+            <span class="value value--muted" id="hrv">—</span><span class="unit">ms</span><span id="hrv-placeholder" style="display: none;"> <em>(placeholder)</em></span>
+          </div>
+          <div class="section">
+            <span class="label">Stress</span>
+            <span class="label-desc" id="stress-desc">From SDK or placeholder (bridge).</span>
+            <div class="bar-wrap"><div class="bar-fill" id="stress-bar" style="width: 0%; background: var(--success);"></div></div>
+            <span class="unit" id="stress-pct">0%</span><span id="stress-placeholder" style="display: none;"> <em>(placeholder)</em></span>
+          </div>
+          <div class="section" id="emotion-section" style="display: none;">
+            <span class="label">Face emotion</span>
+            <span class="label-desc">Expression and confidence from SDK or bridge.</span>
+            <span class="value" id="emotion">—</span>
+            <span class="unit" id="emotion-conf"></span>
+          </div>
+          <div class="section risk">
+            <span class="label">Vitals risk</span>
+            <span class="label-desc" id="risk-desc">Combined from heart rate, HRV, stress.</span>
+            <span class="value" id="risk">—</span><span class="unit">/ 1.0</span>
+          </div>
+          <p class="label label-desc" id="disclaimer-msg" style="margin-top: 1rem; padding: 0.5rem; background: var(--bg-muted); border-radius: 6px; border-left: 3px solid var(--border);"></p>
+          <div class="legend">
+            <span class="c-s">● Live / OK</span>
+            <span class="c-w">● Warning / simulated</span>
+            <span class="c-d">● Error / no data</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = 'http://localhost:8000';
+    const POLL_MS = 1000;
+
+    // API status + data source + status dot (color polarity)
+    const dotEl = document.getElementById('status-dot');
+    async function checkApi() {
+      try {
+        const r = await fetch(API + '/vitals');
+        const el = document.getElementById('api-status');
+        const srcEl = document.getElementById('data-source');
+        if (!r.ok) {
+          el.textContent = 'Backend error ' + r.status;
+          srcEl.textContent = '';
+          dotEl.className = 'dot dot--err';
+          return false;
+        }
+        el.textContent = 'Backend connected.';
+        const d = await r.json();
+        if (d.patient === 'live' && d.source === 'sdk') {
+          srcEl.textContent = 'Data: Live (SDK) — accurate.';
+          srcEl.style.color = 'var(--success)';
+          dotEl.className = 'dot dot--ok';
+        } else if (d.patient === 'live' && d.source === 'bridge') {
+          srcEl.textContent = 'Data: Live (camera estimate).';
+          srcEl.style.color = 'var(--warning)';
+          dotEl.className = 'dot dot--warn';
+        } else if (d.patient === 'live') {
+          srcEl.textContent = 'Data: live.';
+          srcEl.style.color = 'var(--success)';
+          dotEl.className = 'dot dot--ok';
+        } else if (!d.patient || d.patient === null) {
+          srcEl.textContent = 'Data: none — start a measurement in the app (tap Record) or run bridge (RUN.md).';
+          srcEl.style.color = 'var(--danger)';
+          dotEl.className = 'dot dot--warn';
+        } else if (d.source === 'simulator' || (d.patient === 'A' || d.patient === 'B' || d.patient === 'C')) {
+          srcEl.textContent = 'Data: ' + d.patient + ' (simulated).';
+          srcEl.style.color = 'var(--warning)';
+          dotEl.className = 'dot dot--warn';
+        } else {
+          srcEl.textContent = 'Data: ' + (d.patient || '?') + '.';
+          srcEl.style.color = 'var(--warning)';
+          dotEl.className = 'dot dot--warn';
+        }
+        return true;
+      } catch (e) {
+        document.getElementById('api-status').textContent = 'Backend not running — start ./run_live_demo.sh first.';
+        document.getElementById('data-source').textContent = '';
+        dotEl.className = 'dot dot--err';
+        return false;
+      }
+    }
+    checkApi();
+    setInterval(checkApi, 3000);
+
+    // Camera
+    const video = document.getElementById('video');
+    const btnCamera = document.getElementById('btn-camera');
+    const cameraError = document.getElementById('camera-error');
+    const liveBadge = document.getElementById('live-badge');
+
+    btnCamera.onclick = async function () {
+      btnCamera.disabled = true;
+      btnCamera.textContent = 'Allow camera when prompted…';
+      cameraError.style.display = 'none';
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        video.srcObject = stream;
+        video.style.display = 'block';
+        liveBadge.style.display = 'block';
+        btnCamera.style.display = 'none';
+      } catch (e) {
+        cameraError.textContent = e.message || 'Camera access denied';
+        cameraError.style.display = 'block';
+        btnCamera.textContent = 'Start camera';
+        btnCamera.disabled = false;
+      }
+    };
+
+    // Vitals poll
+    async function pollVitals() {
+      try {
+        const r = await fetch(API + '/vitals');
+        const d = await r.json();
+        document.getElementById('vitals-waiting').style.display = 'none';
+        document.getElementById('vitals-body').style.display = 'block';
+        var srcEl = document.getElementById('source-msg');
+        var isSdk = d.source === 'sdk';
+        var isBridge = d.source === 'bridge';
+        if (d.patient === 'live' && isSdk) {
+          srcEl.innerHTML = '<span class="source-live">✓ Live (SDK) — accurate</span><span class="label-desc">Vitals from Presage SmartSpectra; use for real readings.</span>';
+        } else if (d.patient === 'live' && isBridge) {
+          srcEl.innerHTML = '<span class="source-other">Live (camera estimate)</span><span class="label-desc">Rough estimates from Python bridge. For accurate vitals use the Swift app (SDK).</span>';
+        } else if (d.patient === 'live') {
+          srcEl.innerHTML = '<span class="source-live">✓ Live</span><span class="label-desc">Vitals from backend.</span>';
+        } else if (d.patient === 'A' || d.patient === 'B' || d.patient === 'C' || d.source === 'simulator') {
+          srcEl.innerHTML = '<span class="source-sim">⚠ Simulated (patient ' + (d.patient || '?') + ')</span><span class="label-desc">Stop the simulator; run SDK app or bridge for real vitals (see RUN.md).</span>';
+        } else if (!d.patient || d.patient === '') {
+          srcEl.innerHTML = '<span class="source-sim">No data yet.</span><span class="label-desc">Run the Swift app (SDK) or in a second terminal: <code>cd backend && python3 -u live_vitals_bridge.py --interval 1</code>. See RUN.md.</span>';
+        } else {
+          srcEl.innerHTML = '<span class="source-other">Source: ' + (d.patient || '?') + '</span>';
+        }
+        document.getElementById('hr-estimate-badge').style.display = isBridge ? 'inline' : 'none';
+        document.getElementById('br-estimate-badge').style.display = isBridge ? 'inline' : 'none';
+        document.getElementById('hr-desc').textContent = isSdk ? 'From Presage SDK (pulse).' : (isBridge ? 'Estimated from face (pulse). Often rough.' : 'From face (pulse).');
+        document.getElementById('br-desc').textContent = isSdk ? 'From Presage SDK (chest).' : (isBridge ? 'Estimated from chest movement. Often rough.' : 'From chest movement.');
+        document.getElementById('hrv-desc').textContent = isSdk ? 'From SDK.' : (isBridge ? 'Placeholder only (bridge sends fixed 35 ms).' : 'From SDK or placeholder.');
+        document.getElementById('stress-desc').textContent = isSdk ? 'From SDK.' : (isBridge ? 'Placeholder only (bridge sends fixed 25%).' : 'From SDK or placeholder.');
+        document.getElementById('hrv-placeholder').style.display = isBridge ? 'inline' : 'none';
+        document.getElementById('stress-placeholder').style.display = isBridge ? 'inline' : 'none';
+        document.getElementById('risk-desc').textContent = isSdk ? 'Combined from heart rate, HRV, stress (SDK).' : (isBridge ? 'Uses real HR; HRV and stress are placeholders.' : 'Combined from heart rate, HRV, stress.');
+        var disclaimer = document.getElementById('disclaimer-msg');
+        if (isSdk) disclaimer.innerHTML = '<strong>Vitals from Presage SmartSpectra.</strong> Use for real readings.';
+        else if (isBridge) disclaimer.innerHTML = '<strong>Not for real use.</strong> Estimates only. For accurate vitals use the Swift app (SDK). See RUN.md.';
+        else disclaimer.innerHTML = 'Demo only. For accurate vitals use the Presage SDK (Swift app).';
+        document.getElementById('hr').textContent = d.heart_rate != null ? Math.round(d.heart_rate) : '—';
+        const hrFlag = document.getElementById('hr-flag');
+        hrFlag.style.display = (d.heart_rate != null && (d.heart_rate < 60 || d.heart_rate > 100)) ? 'inline' : 'none';
+        document.getElementById('hrv').textContent = d.hrv != null ? Math.round(d.hrv) : '—';
+        document.getElementById('br').textContent = d.breathing_rate != null ? Math.round(d.breathing_rate) : '—';
+          const pct = d.stress_score != null ? Math.round(d.stress_score * 100) : 0;
+          document.getElementById('stress-pct').textContent = pct + '%';
+          const bar = document.getElementById('stress-bar');
+          bar.style.width = pct + '%';
+          bar.style.background = pct < 40 ? 'var(--success)' : pct <= 70 ? 'var(--warning)' : 'var(--danger)';
+        document.getElementById('risk').textContent = d.vitals_risk != null ? d.vitals_risk.toFixed(2) : '—';
+        const emotionSection = document.getElementById('emotion-section');
+        if (d.face && d.face.expression) {
+          emotionSection.style.display = 'block';
+          document.getElementById('emotion').textContent = d.face.expression;
+          document.getElementById('emotion-conf').textContent = d.face.confidence != null ? (Math.round(d.face.confidence * 100) + '%') : '';
+        } else {
+          emotionSection.style.display = 'none';
+        }
+      } catch (_) {}
+    }
+    setInterval(pollVitals, POLL_MS);
+    pollVitals();
+  </script>
+</body>
+</html>
