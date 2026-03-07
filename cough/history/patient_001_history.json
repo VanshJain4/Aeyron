@@ -1,0 +1,50 @@
+[
+  {
+    "timestamp": "2026-03-06T21:32:32.679966",
+    "severity": 10.0,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:33:15.613065",
+    "severity": 20.5,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:33:15.621039",
+    "severity": 17.5,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:33:15.628237",
+    "severity": 19.5,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:36:56.733060",
+    "severity": 18.0,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:36:58.371659",
+    "severity": 62.0,
+    "confidence": 0.85,
+    "trend": "declining"
+  },
+  {
+    "timestamp": "2026-03-06T21:37:16.500907",
+    "severity": 18.0,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:37:16.517657",
+    "severity": 62.0,
+    "confidence": 0.85,
+    "trend": "declining"
+  }
+]
