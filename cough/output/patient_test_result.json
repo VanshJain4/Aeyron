@@ -1,0 +1,23 @@
+{
+  "patient_id": "test",
+  "timestamp": "2026-03-07T07:21:58.870953",
+  "status": "success",
+  "num_coughs": 1,
+  "features": {
+    "spectral_centroid": 991.370508,
+    "peak_to_decay_ratio": 1.47636,
+    "spectral_slope": -0.005077,
+    "rise_time": 72.879819,
+    "zero_crossing_rate": 0.047921,
+    "expulsive_duration": 23.401361,
+    "crest_factor": 3.251025,
+    "phase_power_ratio": 0.163527
+  },
+  "severity": 50.0,
+  "confidence": 0.8,
+  "pd_score": 0.6662,
+  "pd_label": "HIGH_RISK",
+  "trend": "stable",
+  "flags": [],
+  "medication_status": null
+}
