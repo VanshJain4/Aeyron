@@ -1,23 +1,11 @@
-# Aegis Hypophonia (voice-only)
 
-Edge-to-cloud telemetry: 5 voice features → Vultr ML server (autoencoder anomaly detection).
+[MLH] Best Use of Vultr
 
-## Run order
+1 winner
+Portable Screens
 
-1. **Vultr ML server** (on Vultr or local):
-   ```bash
-   cd vultr_ml_server && pip install -r requirements.txt && uvicorn server:app --host 0.0.0.0 --port 8000
-   ```
+Vultr empowers hackers to bring their high-performance projects to life instantly; providing everything from the speed of one-click deployment and scalable cloud compute, to specialized Vultr Cloud GPUs that can power AI-driven applications. We want you to push the limits of what can be built when infrastructure is no longer the bottleneck!
 
-2. **Patient client** (Gradio UI):
-   ```bash
-   cd patient_client && pip install -r requirements.txt && python main_ui.py
-   ```
-   Set "Vultr ML server URL" to `http://<Vultr Tailscale IP>:8000` (or `http://127.0.0.1:8000` for local).
+Sign up for a Vultr account today and claim your free cloud credits! Take your next hack to the cloud with Vultr for a chance to win some awesome portable screens for you and your team!
 
-3. **Doctor dashboard**: open `doctor_dashboard/index.html` in a browser, or serve the folder (e.g. `python -m http.server 8080` from `doctor_dashboard`). Set API base URL and Patient ID, then "Load history".
-
-## Flow
-
-- Sessions 1–5: recordings stored locally; after 5th, baseline is sent to server (`POST /api/enroll`).
-- Session 6+: current vector sent to server (`POST /api/infer`); anomaly score stored and shown. Flagged if MSE > 3× baseline.
+For more information: https://mlh.link/vultr
