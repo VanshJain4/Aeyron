@@ -1,50 +1,26 @@
 [
   {
-    "timestamp": "2026-03-06T21:32:32.679966",
+    "timestamp": "2026-03-07T06:31:23.779133",
     "severity": 10.0,
     "confidence": 0.85,
+    "pd_score": 0.1,
+    "pd_label": "LOW_RISK",
     "trend": "stable"
   },
   {
-    "timestamp": "2026-03-06T21:33:15.613065",
-    "severity": 20.5,
+    "timestamp": "2026-03-07T06:31:23.787964",
+    "severity": 62.5,
     "confidence": 0.85,
-    "trend": "stable"
-  },
-  {
-    "timestamp": "2026-03-06T21:33:15.621039",
-    "severity": 17.5,
-    "confidence": 0.85,
-    "trend": "stable"
-  },
-  {
-    "timestamp": "2026-03-06T21:33:15.628237",
-    "severity": 19.5,
-    "confidence": 0.85,
-    "trend": "stable"
-  },
-  {
-    "timestamp": "2026-03-06T21:36:56.733060",
-    "severity": 18.0,
-    "confidence": 0.85,
-    "trend": "stable"
-  },
-  {
-    "timestamp": "2026-03-06T21:36:58.371659",
-    "severity": 62.0,
-    "confidence": 0.85,
+    "pd_score": 0.1717,
+    "pd_label": "LOW_RISK",
     "trend": "declining"
   },
   {
-    "timestamp": "2026-03-06T21:37:16.500907",
-    "severity": 18.0,
-    "confidence": 0.85,
-    "trend": "stable"
-  },
-  {
-    "timestamp": "2026-03-06T21:37:16.517657",
-    "severity": 62.0,
-    "confidence": 0.85,
+    "timestamp": "2026-03-07T06:31:23.795163",
+    "severity": 70.0,
+    "confidence": 1.0,
+    "pd_score": 0.4559,
+    "pd_label": "MODERATE_RISK",
     "trend": "declining"
   }
 ]

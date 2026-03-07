@@ -1,106 +1,75 @@
 """
-Test trend detection by simulating multiple recordings over time.
+Test trend detection: simulate three follow-up recordings for patient_001
+showing progressive cough decline, and verify the trend flags fire.
 """
+from __future__ import annotations
 
-import numpy as np
 import json
+import numpy as np
+from pathlib import Path
 from scipy.io import wavfile
 
+from create_test_audio import _cough_healthy, _cough_moderate, _cough_severe_pd, RNG
 from analyse import analyze
 
-
-def create_declining_cough(sr=22050, duration=0.3, strength=1.0, decline_factor=1.0):
-    """Create a cough with applied decline factor."""
-    t = np.linspace(0, duration, int(sr * duration))
-
-    # Burst phase with decline
-    burst_end = int(len(t) * 0.3)
-    burst = np.exp(-8 * t[:burst_end]) * np.sin(2 * np.pi * 150 * t[:burst_end])
-
-    # Tail phase
-    tail_t = t[burst_end:] - t[burst_end]
-    tail = np.exp(-3 * tail_t) * np.sin(2 * np.pi * 100 * tail_t)
-
-    cough = np.concatenate([burst, tail])
-    noise = np.random.normal(0, 0.1, len(cough))
-    cough = cough + noise * strength
-
-    # Apply decline (reduces amplitude and high frequencies)
-    cough = cough * decline_factor * strength * 0.3
-    cough = cough / (np.max(np.abs(cough)) + 1e-10)
-
-    return cough
+_DIR = Path(__file__).resolve().parent
 
 
-def create_follow_up_recording(num_coughs=3, strength=0.8, decline_factor=0.9):
-    """Create a follow-up recording with declining strength."""
+def _make_recording(cough_fn, sr: int = 22050, num_coughs: int = 3) -> np.ndarray:
+    silence = np.zeros(int(sr * 0.5))
+    gap = np.zeros(int(sr * 0.35))
+    parts = [silence]
+    for _ in range(num_coughs):
+        c = cough_fn(sr=sr)
+        peak = np.max(np.abs(c))
+        if peak > 0:
+            c = c / peak * 0.85
+        parts += [c, gap]
+    rec = np.concatenate(parts)
+    rec += 0.008 * RNG.standard_normal(len(rec))
+    peak = np.max(np.abs(rec))
+    return rec / peak if peak > 0 else rec
+
+
+def test_trend_detection() -> None:
+    print("=== Trend detection test — patient 001 ===\n")
     sr = 22050
-    silence_start = np.zeros(int(sr * 0.5))
-    silence_between = np.zeros(int(sr * 0.3))
+    pid = "001"
 
-    recording = silence_start.copy()
+    # Clear old history so we get a clean run
+    hist_path = _DIR / "history" / f"patient_{pid}_history.json"
+    if hist_path.exists():
+        hist_path.write_text("[]")
 
-    for i in range(num_coughs):
-        cough = create_declining_cough(
-            sr=sr,
-            duration=0.3,
-            strength=strength,
-            decline_factor=decline_factor,
-        )
-        recording = np.concatenate([recording, cough, silence_between])
-
-    background_noise = np.random.normal(0, 0.02, len(recording))
-    recording = recording + background_noise
-    recording = recording / np.max(np.abs(recording))
-
-    return recording
-
-
-def test_trend_detection():
-    """Test trend detection with multiple follow-up recordings."""
-    print("Testing trend detection with multiple recordings...\n")
-
-    # Patient 001: simulate progressive decline
-    patient_id = "001"
-    sr = 22050
-
-    decline_scenarios = [
-        (0.95, "Follow-up 1: Slight decline"),
-        (0.85, "Follow-up 2: Moderate decline"),
-        (0.70, "Follow-up 3: Significant decline"),
+    scenarios = [
+        (_cough_healthy,   "Follow-up 1: Healthy (no decline)"),
+        (_cough_moderate,  "Follow-up 2: Moderate decline"),
+        (_cough_severe_pd, "Follow-up 3: Severe / PD-like decline"),
     ]
 
-    for decline_factor, label in decline_scenarios:
-        print(f"Creating {label} (decline_factor={decline_factor})...")
+    for fn, label in scenarios:
+        audio_path = _DIR / "audio" / "patient_001_followup.wav"
+        rec = _make_recording(fn, sr=sr)
+        wavfile.write(str(audio_path), sr, np.int16(rec * 32767))
 
-        # Create recording
-        audio = create_follow_up_recording(
-            num_coughs=3,
-            strength=1.2,  # Same base strength as patient_001
-            decline_factor=decline_factor,
-        )
+        result = analyze(str(audio_path), pid)
+        print(f"{label}")
+        print(f"  coughs detected : {result['num_coughs']}")
+        print(f"  severity        : {result['severity']:.1f}")
+        print(f"  confidence      : {result['confidence']:.2f}")
+        print(f"  pd_score        : {result['pd_score']}  ({result['pd_label']})")
+        print(f"  trend           : {result['trend']}")
+        print(f"  flags           : {result['flags']}\n")
 
-        # Save
-        audio_path = f"audio/patient_{patient_id}_followup.wav"
-        audio_int16 = np.int16(audio * 32767)
-        wavfile.write(audio_path, sr, audio_int16)
-
-        # Analyze
-        result = analyze(audio_path, patient_id)
-
-        print(f"  Severity: {result['severity']:.1f}")
-        print(f"  Confidence: {result['confidence']:.2f}")
-        print(f"  Trend: {result['trend']}")
-        print(f"  Flags: {result['flags']}\n")
-
-    # Print final history
-    print("\nFinal severity history for patient 001:")
-    with open(f"history/patient_{patient_id}_history.json") as f:
-        history = json.load(f)
-        for i, entry in enumerate(history):
+    print("History:")
+    if hist_path.exists():
+        history = json.loads(hist_path.read_text())
+        for i, h in enumerate(history, 1):
             print(
-                f"  Reading {i + 1}: severity={entry['severity']:.1f}, "
-                f"trend={entry['trend']}"
+                f"  [{i}] severity={h['severity']:.1f}  "
+                f"pd_score={h['pd_score']}  "
+                f"pd_label={h['pd_label']}  "
+                f"trend={h['trend']}"
             )
 
 

@@ -1,37 +1,40 @@
 """
-Step 8: Main entry point
-Ties all modules together: detect -> features -> scoring -> output JSON
+Main entry point: detect → features → PD likelihood → severity scoring → JSON output.
+
+Usage:
+    python analyse.py <audio_path> <patient_id> [medication_status]
 """
+from __future__ import annotations
 
 import json
-import os
 import sys
 from datetime import datetime
+from pathlib import Path
 
 import librosa
 
 from detect import detect_coughs
 from features import extract_features
+from pd_classifier import pd_likelihood
 from scoring import score_recording, load_history
 
+_DIR = Path(__file__).resolve().parent
 
-def analyze(audio_path, patient_id, medication_status=None):
+
+def analyze(
+    audio_path: str,
+    patient_id: str,
+    medication_status: str | None = None,
+) -> dict:
     """
-    Analyze a recording for cough weakness indicators.
+    Full pipeline: load → detect → extract → score → PD likelihood → save.
 
-    Args:
-        audio_path: Path to audio file
-        patient_id: Patient identifier (e.g., "001")
-        medication_status: Optional, "on" or "off"
-
-    Returns:
-        Dict with analysis results
+    Returns result dict.
     """
-    # Step 1: Load audio
     sr = 22050
     y, _ = librosa.load(audio_path, sr=sr)
 
-    # Step 2: Detect coughs
+    # Detect coughs
     cough_segments = detect_coughs(audio_path, sr=sr)
 
     if not cough_segments:
@@ -39,67 +42,78 @@ def analyze(audio_path, patient_id, medication_status=None):
             "patient_id": patient_id,
             "timestamp": datetime.now().isoformat(),
             "status": "no_cough_detected",
+            "num_coughs": 0,
             "severity": 0.0,
             "confidence": 0.0,
+            "pd_score": None,
+            "pd_label": None,
+            "trend": "unknown",
+            "flags": ["no_cough_detected"],
+            "medication_status": medication_status,
         }
+        _save(result, patient_id)
         return result
 
-    # Step 3: Extract features
-    features = extract_features(y, cough_segments, sr=sr)
+    # Extract features
+    feats = extract_features(y, cough_segments, sr=sr)
 
-    # Step 4 & 5 & 6 & 7: Scoring
-    scores = score_recording(
-        features,
-        patient_id,
-        len(cough_segments),
-        medication_status=medication_status,
-    )
+    # Scoring against personal baseline
+    scores = score_recording(feats, patient_id, len(cough_segments), medication_status)
 
-    # Assemble result JSON
+    # PD likelihood from cough acoustic characteristics
+    pd_score, pd_label = pd_likelihood(feats["averaged"])
+
     result = {
         "patient_id": patient_id,
         "timestamp": datetime.now().isoformat(),
         "status": "success",
         "num_coughs": len(cough_segments),
         "features": {
-            "spectral_centroid": features["averaged"]["spectral_centroid"],
-            "peak_to_decay_ratio": features["averaged"]["peak_to_decay_ratio"],
-            "spectral_slope": features["averaged"]["spectral_slope"],
-            "rise_time": features["averaged"]["rise_time"],
-            "zero_crossing_rate": features["averaged"]["zero_crossing_rate"],
-            "expulsive_duration": features["averaged"]["expulsive_duration"],
+            k: round(feats["averaged"][k], 6)
+            for k in (
+                "spectral_centroid",
+                "peak_to_decay_ratio",
+                "spectral_slope",
+                "rise_time",
+                "zero_crossing_rate",
+                "expulsive_duration",
+            )
         },
         "severity": scores["severity"],
         "confidence": scores["confidence"],
+        "pd_score": pd_score,
+        "pd_label": pd_label,
         "trend": scores["trend"],
         "flags": scores["flags"],
         "medication_status": medication_status,
     }
 
-    # Step 9: Write output JSON
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
-    output_path = f"{output_dir}/patient_{patient_id}_result.json"
-    with open(output_path, "w") as f:
-        json.dump(result, f, indent=2)
+    _save(result, patient_id)
+    return result
 
-    # Step 10: Append to history
-    history_dir = "history"
-    os.makedirs(history_dir, exist_ok=True)
-    history_path = f"{history_dir}/patient_{patient_id}_history.json"
 
+def _save(result: dict, patient_id: str) -> None:
+    """Write output JSON and append to history."""
+    out_dir = _DIR / "output"
+    out_dir.mkdir(exist_ok=True)
+    (out_dir / f"patient_{patient_id}_result.json").write_text(
+        json.dumps(result, indent=2)
+    )
+
+    hist_dir = _DIR / "history"
+    hist_dir.mkdir(exist_ok=True)
     history = load_history(patient_id)
     history.append({
         "timestamp": result["timestamp"],
-        "severity": scores["severity"],
-        "confidence": scores["confidence"],
-        "trend": scores["trend"],
+        "severity": result["severity"],
+        "confidence": result["confidence"],
+        "pd_score": result.get("pd_score"),
+        "pd_label": result.get("pd_label"),
+        "trend": result["trend"],
     })
-
-    with open(history_path, "w") as f:
-        json.dump(history, f, indent=2)
-
-    return result
+    (hist_dir / f"patient_{patient_id}_history.json").write_text(
+        json.dumps(history, indent=2)
+    )
 
 
 if __name__ == "__main__":
@@ -107,9 +121,9 @@ if __name__ == "__main__":
         print("Usage: python analyse.py <audio_path> <patient_id> [medication_status]")
         sys.exit(1)
 
-    audio_path = sys.argv[1]
-    patient_id = sys.argv[2]
-    medication_status = sys.argv[3] if len(sys.argv) > 3 else None
+    _audio = sys.argv[1]
+    _pid = sys.argv[2]
+    _med = sys.argv[3] if len(sys.argv) > 3 else None
 
-    result = analyze(audio_path, patient_id, medication_status)
-    print(json.dumps(result, indent=2))
+    _result = analyze(_audio, _pid, _med)
+    print(json.dumps(_result, indent=2))

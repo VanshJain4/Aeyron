@@ -1,54 +1,51 @@
 """
-Steps 4-7: Baseline comparison, severity scoring, confidence scoring, and trend analysis.
+Baseline comparison, severity scoring, confidence scoring, and trend analysis.
 """
+from __future__ import annotations
 
 import json
-import os
 import numpy as np
+from pathlib import Path
+
+_DIR = Path(__file__).resolve().parent
 
 
-def load_baseline(patient_id):
+def load_baseline(patient_id: str) -> dict | None:
     """Load baseline features for a patient."""
-    baseline_path = f"baselines/patient_{patient_id}.json"
-    if os.path.exists(baseline_path):
-        with open(baseline_path) as f:
-            return json.load(f)
+    path = _DIR / "baselines" / f"patient_{patient_id}.json"
+    if path.exists():
+        return json.loads(path.read_text())
     return None
 
 
-def baseline_comparison(features, patient_id):
+def baseline_comparison(features: dict, patient_id: str) -> dict | None:
     """
-    Step 4: Compare current features to patient's baseline.
-    Returns percent change for each feature.
+    Compare current averaged features to patient's stored baseline.
+    Returns percent change per feature (positive = increased from baseline).
     """
     baseline = load_baseline(patient_id)
     if not baseline:
         return None
 
     comparison = {}
-    for key in baseline.keys():
+    for key, baseline_val in baseline.items():
         if key in features["averaged"]:
             current = features["averaged"][key]
-            baseline_val = baseline[key]
             if baseline_val != 0:
-                percent_change = ((current - baseline_val) / baseline_val) * 100
+                comparison[key] = ((current - baseline_val) / abs(baseline_val)) * 100.0
             else:
-                percent_change = 0
-            comparison[key] = percent_change
-
+                comparison[key] = 0.0
     return comparison
 
 
-def severity_scoring(features, patient_id):
+def severity_scoring(features: dict, patient_id: str) -> float:
     """
-    Step 5: Weighted deviation model for severity.
-    Maps percent deviation to 0-100 severity score.
+    Weighted deviation from personal baseline → severity score 0–100.
     """
     comparison = baseline_comparison(features, patient_id)
     if not comparison:
-        return 50.0  # Default if no baseline
+        return 50.0  # No baseline: return neutral
 
-    # Weights for each feature
     weights = {
         "spectral_centroid": 0.25,
         "peak_to_decay_ratio": 0.25,
@@ -58,117 +55,101 @@ def severity_scoring(features, patient_id):
         "zero_crossing_rate": 0.10,
     }
 
-    # Map percent deviation to sub-score
-    def percent_to_subscore(percent_dev):
-        abs_dev = abs(percent_dev)
-        if abs_dev < 10:
-            return 10
-        elif abs_dev < 20:
-            return 30
-        elif abs_dev < 30:
-            return 60
+    def _subscore(pct: float) -> float:
+        """Map |percent deviation| to a 0-100 sub-score."""
+        a = abs(pct)
+        if a < 10:
+            return 10.0
+        elif a < 20:
+            return 30.0
+        elif a < 40:
+            return 60.0
         else:
-            return 90
+            return 90.0
 
-    weighted_score = 0.0
-    for feature, weight in weights.items():
-        if feature in comparison:
-            subscore = percent_to_subscore(comparison[feature])
-            weighted_score += subscore * weight
+    weighted = 0.0
+    for feat, w in weights.items():
+        if feat in comparison:
+            weighted += _subscore(comparison[feat]) * w
 
-    return min(weighted_score, 100.0)
+    return min(weighted, 100.0)
 
 
-def confidence_scoring(features, num_coughs):
+def confidence_scoring(features: dict, num_coughs: int) -> float:
     """
-    Step 6: Confidence scoring with penalties.
-    Starts at 1.0, subtracts penalties, floors at 0.0.
+    Confidence score 0–1. Penalises low cough count and high inter-cough variance.
     """
-    confidence = 1.0
+    conf = 1.0
 
-    # Penalty: only one cough detected
+    if num_coughs == 0:
+        return 0.0
     if num_coughs == 1:
-        confidence -= 0.2
+        conf -= 0.20
 
-    # Penalty: high variance across coughs
-    if len(features["per_cough"]) > 1:
-        # Check if any feature has high std relative to mean
-        for key in features["per_cough"][0].keys():
-            values = [f[key] for f in features["per_cough"]]
-            mean_val = np.mean(values)
-            std_val = np.std(values)
-            if mean_val != 0:
-                cv = std_val / mean_val  # Coefficient of variation
-                if cv > 0.3:  # High inconsistency
-                    confidence -= 0.15
-                    break
+    if len(features.get("per_cough", [])) > 1:
+        for key in features["per_cough"][0]:
+            vals = [f[key] for f in features["per_cough"]]
+            mean_v = float(np.mean(vals))
+            std_v = float(np.std(vals))
+            if mean_v != 0 and (std_v / abs(mean_v)) > 0.30:
+                conf -= 0.15
+                break
 
-    # Penalty: edge of duration window
-    # This is approximate without re-checking cough durations
-    # For now, skip this penalty to avoid over-penalizing
-
-    return max(confidence, 0.0)
+    return max(0.0, conf)
 
 
-def load_history(patient_id):
-    """Load patient's severity history."""
-    history_path = f"history/patient_{patient_id}_history.json"
-    if os.path.exists(history_path):
-        with open(history_path) as f:
-            return json.load(f)
+def load_history(patient_id: str) -> list:
+    """Load patient severity history."""
+    path = _DIR / "history" / f"patient_{patient_id}_history.json"
+    if path.exists():
+        return json.loads(path.read_text())
     return []
 
 
-def trend_analysis(current_severity, patient_id, flags_list):
-    """
-    Step 7: Analyze trends and add flags.
-    """
+def trend_analysis(current_severity: float, patient_id: str, flags: list) -> tuple[str, list]:
+    """Detect trend from history and append new flags."""
     history = load_history(patient_id)
-
     trend = "stable"
-    new_flags = flags_list.copy() if flags_list else []
+    new_flags = list(flags)
 
     if history:
-        # Last three readings
         recent = history[-3:] if len(history) >= 3 else history
-        avg_recent = np.mean([h["severity"] for h in recent])
+        avg_recent = float(np.mean([h["severity"] for h in recent]))
 
-        # Declining trend: 15+ points higher than average of last 3
         if current_severity >= avg_recent + 15:
             trend = "declining"
 
-        # Sustained decline: 3+ consecutive increases
         if len(history) >= 3:
-            last_three = history[-3:]
-            severities = [h["severity"] for h in last_three]
-            if (severities[0] < severities[1] < severities[2] and
-                severities[2] < current_severity):
-                new_flags.append("sustained_decline")
+            sevs = [h["severity"] for h in history[-3:]]
+            if sevs[0] < sevs[1] < sevs[2] < current_severity:
+                if "sustained_decline" not in new_flags:
+                    new_flags.append("sustained_decline")
 
-        # Clinical threshold check (spectral centroid < 160 Hz)
-        if ("spectral_centroid_low" not in new_flags and
-            current_severity > 70):
+        if current_severity > 70 and "below_clinical_threshold" not in new_flags:
             new_flags.append("below_clinical_threshold")
 
     return trend, new_flags
 
 
-def score_recording(features, patient_id, num_coughs, medication_status=None):
-    """
-    Combine all scoring steps.
-    """
+def score_recording(
+    features: dict,
+    patient_id: str,
+    num_coughs: int,
+    medication_status: str | None = None,
+) -> dict:
+    """Run all scoring steps and return combined result."""
     severity = severity_scoring(features, patient_id)
     confidence = confidence_scoring(features, num_coughs)
 
-    flags = []
+    flags: list[str] = []
     if medication_status == "off" and severity > 60:
         flags.append("possible_medication_related")
 
     trend, flags = trend_analysis(severity, patient_id, flags)
 
     return {
-        "severity": severity,
-        "confidence": confidence,
+        "severity": round(severity, 2),
+        "confidence": round(confidence, 2),
         "trend": trend,
         "flags": flags,
     }

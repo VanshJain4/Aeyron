@@ -1,18 +1,20 @@
 {
   "patient_id": "001",
-  "timestamp": "2026-03-06T21:37:16.517657",
+  "timestamp": "2026-03-07T06:31:23.795163",
   "status": "success",
   "num_coughs": 3,
   "features": {
-    "spectral_centroid": 3073.6028596818774,
-    "peak_to_decay_ratio": 0.9109891653060913,
-    "spectral_slope": -0.002936417318304104,
-    "rise_time": 58.41269841269841,
-    "zero_crossing_rate": 0.19187127976190477,
-    "expulsive_duration": 24.35374149659864
+    "spectral_centroid": 1941.413756,
+    "peak_to_decay_ratio": 1.052074,
+    "spectral_slope": -0.000223,
+    "rise_time": 22.569917,
+    "zero_crossing_rate": 0.037946,
+    "expulsive_duration": 48.072562
   },
-  "severity": 62.0,
-  "confidence": 0.85,
+  "severity": 70.0,
+  "confidence": 1.0,
+  "pd_score": 0.4559,
+  "pd_label": "MODERATE_RISK",
   "trend": "declining",
   "flags": [],
   "medication_status": null

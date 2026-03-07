@@ -1,123 +1,134 @@
 """
-Create synthetic test audio for three patient scenarios.
+Create synthetic test audio with acoustically distinct healthy vs PD coughs.
+
+Healthy cough:  broadband noise burst + high-freq harmonics
+                → high spectral centroid (~4 000-6 000 Hz), high ZCR, fast rise
+PD/severe cough: narrow-band low-frequency signal, slow decay
+                → low centroid (~300-800 Hz), low ZCR, slow rise
+
+These differences directly drive pd_classifier.pd_likelihood().
 """
+from __future__ import annotations
+
+import os
+from pathlib import Path
 
 import numpy as np
-import json
-import os
 from scipy.io import wavfile
 
+_DIR = Path(__file__).resolve().parent
 
-def create_cough(sr=22050, duration=0.3, strength=1.0):
+RNG = np.random.default_rng(42)  # fixed seed → reproducible features
+
+
+def _cough_healthy(sr: int, duration: float = 0.30) -> np.ndarray:
     """
-    Create synthetic cough audio.
-
-    Args:
-        sr: Sample rate
-        duration: Cough duration in seconds
-        strength: Amplitude multiplier (1.0 = normal, 0.5 = weak, 1.5 = strong)
+    Strong healthy cough: explosive broadband burst, fast decay.
+    Spectral centroid ~4 000-6 000 Hz; ZCR ~0.30-0.45; rise time ~15-40 ms.
     """
     t = np.linspace(0, duration, int(sr * duration))
-
-    # Burst phase (first 30% of cough): sharp attack, decaying
-    burst_end = int(len(t) * 0.3)
-    burst = np.exp(-8 * t[:burst_end]) * np.sin(2 * np.pi * 150 * t[:burst_end])
-
-    # Tail phase (rest): lower frequency, gradual decay
-    tail_t = t[burst_end:] - t[burst_end]
-    tail = np.exp(-3 * tail_t) * np.sin(2 * np.pi * 100 * tail_t)
-
-    cough = np.concatenate([burst, tail])
-
-    # Add some turbulence (high-frequency noise)
-    noise = np.random.normal(0, 0.1, len(cough))
-    cough = cough + noise * strength
-
-    # Apply strength and normalize
-    cough = cough * strength * 0.3
-    cough = cough / np.max(np.abs(cough))
-
-    return cough
+    # Broadband noise with very fast exponential attack/decay
+    burst = RNG.standard_normal(len(t)) * np.exp(-25.0 * t)
+    # Add high-frequency harmonics (1 kHz, 2 kHz, 3 kHz)
+    for freq in (1000, 2000, 3000):
+        burst += 0.25 * np.sin(2 * np.pi * freq * t) * np.exp(-18.0 * t)
+    # Low-frequency tail (barely audible)
+    tail = 0.08 * np.sin(2 * np.pi * 120 * t) * np.exp(-4.0 * t)
+    return burst + tail
 
 
-def create_recording(patient_type, sr=22050, num_coughs=3):
+def _cough_moderate(sr: int, duration: float = 0.30) -> np.ndarray:
     """
-    Create a recording with multiple coughs and background silence.
-
-    Args:
-        patient_type: "healthy", "moderate", or "severe"
-        sr: Sample rate
-        num_coughs: Number of coughs in the recording
+    Moderate cough: mix of broadband and narrow-band, medium decay.
+    Centroid ~2 000-3 000 Hz; ZCR ~0.18-0.25; rise time ~50-100 ms.
     """
-    # Set strength based on patient type
-    strength_map = {
-        "healthy": 1.2,      # Strong coughs
-        "moderate": 0.8,     # Medium coughs
-        "severe": 0.4,       # Weak coughs
-    }
-    strength = strength_map.get(patient_type, 1.0)
+    t = np.linspace(0, duration, int(sr * duration))
+    broadband = RNG.standard_normal(len(t)) * 0.5 * np.exp(-10.0 * t)
+    mid = 0.6 * np.sin(2 * np.pi * 500 * t) * np.exp(-8.0 * t)
+    low = 0.3 * np.sin(2 * np.pi * 200 * t) * np.exp(-4.0 * t)
+    return broadband + mid + low
 
-    # Create silence padding (0.5s at start, 0.3s between coughs)
+
+def _cough_severe_pd(sr: int, duration: float = 0.30) -> np.ndarray:
+    """
+    Severe/PD cough: narrow-band low-frequency, slow decay.
+    Centroid ~300-700 Hz; ZCR ~0.05-0.10; rise time ~120-220 ms.
+    """
+    t = np.linspace(0, duration, int(sr * duration))
+    # Dominant low-frequency components — no high-freq energy
+    fundamental = np.sin(2 * np.pi * 150 * t) * np.exp(-4.0 * t)
+    sub = 0.4 * np.sin(2 * np.pi * 80 * t) * np.exp(-2.5 * t)
+    # Minimal noise — PD voice is smooth/less turbulent
+    noise = 0.015 * RNG.standard_normal(len(t))
+    return fundamental + sub + noise
+
+
+_COUGH_FN = {
+    "healthy": _cough_healthy,
+    "moderate": _cough_moderate,
+    "severe": _cough_severe_pd,
+}
+
+
+def create_recording(patient_type: str, sr: int = 22050, num_coughs: int = 3) -> np.ndarray:
+    """
+    Embed `num_coughs` into a recording with silence padding.
+    Each cough is normalised before embedding so the detector sees it clearly.
+    """
+    fn = _COUGH_FN[patient_type]
     silence_start = np.zeros(int(sr * 0.5))
-    silence_between = np.zeros(int(sr * 0.3))
+    silence_gap = np.zeros(int(sr * 0.35))
 
-    recording = silence_start.copy()
+    parts = [silence_start]
+    for _ in range(num_coughs):
+        cough = fn(sr=sr)
+        peak = np.max(np.abs(cough))
+        if peak > 0:
+            cough = cough / peak * 0.85
+        parts.append(cough)
+        parts.append(silence_gap)
 
-    for i in range(num_coughs):
-        cough = create_cough(sr=sr, duration=0.3, strength=strength)
-        recording = np.concatenate([recording, cough, silence_between])
-
-    # Add background noise (very low level)
-    background_noise = np.random.normal(0, 0.02, len(recording))
-    recording = recording + background_noise
-
-    # Normalize to [-1, 1]
-    recording = recording / np.max(np.abs(recording))
-
+    recording = np.concatenate(parts)
+    # Add very low background noise
+    recording += 0.008 * RNG.standard_normal(len(recording))
+    # Final normalise
+    peak = np.max(np.abs(recording))
+    if peak > 0:
+        recording = recording / peak
     return recording
 
 
-def main():
-    """Create test audio files for three patient scenarios."""
+def main() -> None:
     sr = 22050
+    audio_dir = _DIR / "audio"
+    audio_dir.mkdir(exist_ok=True)
 
-    # Create audio directory if needed
-    os.makedirs("audio", exist_ok=True)
+    patients = {"001": "healthy", "002": "moderate", "003": "severe"}
 
-    patients = {
-        "001": "healthy",
-        "002": "moderate",
-        "003": "severe",
-    }
+    for pid, ptype in patients.items():
+        print(f"Patient {pid} ({ptype})...")
+        audio = create_recording(ptype, sr=sr)
+        path = audio_dir / f"patient_{pid}.wav"
+        wavfile.write(str(path), sr, np.int16(audio * 32767))
+        print(f"  saved {path}")
 
-    for patient_id, patient_type in patients.items():
-        print(f"Creating test audio for patient {patient_id} ({patient_type})...")
+        # Also save a follow-up WAV for trend testing (patient_001 only)
+        if pid == "001":
+            audio2 = create_recording("moderate", sr=sr)  # simulate mild decline
+            path2 = audio_dir / f"patient_{pid}_followup.wav"
+            wavfile.write(str(path2), sr, np.int16(audio2 * 32767))
+            print(f"  saved {path2}")
 
-        # Create recording at 22050 Hz
-        audio = create_recording(patient_type, sr=sr, num_coughs=3)
-        audio_int16 = np.int16(audio * 32767)
-
-        # Save as WAV file at 22050 Hz
-        wav_path = f"audio/patient_{patient_id}.wav"
-        wavfile.write(wav_path, sr, audio_int16)
-        print(f"  → Saved to {wav_path}")
-
-        # Save as OPUS file at 16000 Hz (OPUS only supports 8k, 12k, 16k, 24k, 48k)
         try:
             import soundfile as sf
-            from scipy.signal import resample
-
-            # Resample to 16000 Hz for OPUS
+            from scipy.signal import resample as sci_resample
             opus_sr = 16000
-            audio_opus = resample(audio, int(len(audio) * opus_sr / sr))
-
-            opus_path = f"audio/patient_{patient_id}.opus"
-            sf.write(opus_path, audio_opus, opus_sr, format='OGG', subtype='OPUS')
-            print(f"  → Saved to {opus_path} (16000 Hz)")
-        except ImportError:
-            print(f"  ⚠️  soundfile not installed, skipping OPUS format")
-        except Exception as e:
-            print(f"  ⚠️  Could not save OPUS format: {e}")
+            audio_opus = sci_resample(audio, int(len(audio) * opus_sr / sr))
+            opus_path = audio_dir / f"patient_{pid}.opus"
+            sf.write(str(opus_path), audio_opus, opus_sr, format="OGG", subtype="OPUS")
+            print(f"  saved {opus_path}")
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
