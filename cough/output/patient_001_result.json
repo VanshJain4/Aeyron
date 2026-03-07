@@ -1,0 +1,19 @@
+{
+  "patient_id": "001",
+  "timestamp": "2026-03-06T21:37:16.517657",
+  "status": "success",
+  "num_coughs": 3,
+  "features": {
+    "spectral_centroid": 3073.6028596818774,
+    "peak_to_decay_ratio": 0.9109891653060913,
+    "spectral_slope": -0.002936417318304104,
+    "rise_time": 58.41269841269841,
+    "zero_crossing_rate": 0.19187127976190477,
+    "expulsive_duration": 24.35374149659864
+  },
+  "severity": 62.0,
+  "confidence": 0.85,
+  "trend": "declining",
+  "flags": [],
+  "medication_status": null
+}

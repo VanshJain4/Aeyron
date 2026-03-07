@@ -1,0 +1,20 @@
+[
+  {
+    "timestamp": "2026-03-06T21:32:38.993601",
+    "severity": 10.0,
+    "confidence": 0.85,
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-06T21:37:16.523842",
+    "severity": 25.5,
+    "confidence": 0.85,
+    "trend": "declining"
+  },
+  {
+    "timestamp": "2026-03-06T21:37:16.538209",
+    "severity": 58.0,
+    "confidence": 0.85,
+    "trend": "declining"
+  }
+]
