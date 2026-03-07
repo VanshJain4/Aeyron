@@ -14,6 +14,7 @@ from core.capture import record_seconds, get_default_input_device_info
 from core.quick_test import extract_quick_features, features_to_vector, FEATURE_ORDER
 from core.acoustic_features import extract_features as extract_praat_features, uci_features_to_vector, UCI_FEATURE_ORDER
 from core import client_network
+from live_demo import start_listening, stop_listening, live_tick
 
 LIVE_RECORD_SEC = 15.0  # Need 15 s for both baselines (personal 10 s + UCI 5 s + 10 s)
 CHUNK_SEC = 5.0  # Must match baseline (train_baseline.py)
@@ -98,17 +99,24 @@ def _format_detailed_report(
         lines.append(f"    (Fo: raw {raw_fo:.0f} Hz corrected to 182 Hz for UCI comparison.)")
     lines.append(f"  MSE vs healthy baseline      : {score_healthy:.6f}  (threshold: {th_h if th_h is not None else 'N/A'})")
     lines.append(f"  MSE vs PD baseline           : {score_pd:.6f}  (threshold: {th_pd if th_pd is not None else 'N/A'})")
-    lines.append(f"  Closer to                    : {uci_closer} baseline")
-    if th_h and th_pd and score_healthy < th_h and score_pd < th_pd:
-        lines.append(f"  (Both MSEs below threshold — within normal variation for both cohorts.)")
+    both_uci_below = th_h and th_pd and score_healthy < th_h and score_pd < th_pd
+    if both_uci_below:
+        lines.append(f"  Result                      : Within normal variation for both cohorts")
+    else:
+        lines.append(f"  Closer to                    : {uci_closer} baseline")
+        if th_h and score_healthy >= th_h:
+            lines.append(f"  (Healthy: above threshold — {score_healthy / th_h:.2f}×)")
+        if th_pd and score_pd >= th_pd:
+            lines.append(f"  (PD: above threshold — {score_pd / th_pd:.2f}×)")
     lines.append(f"  (Recording protocol differs from UCI; not a clinical diagnosis.)")
+    uci_summary = "within normal (both cohorts)" if both_uci_below else f"closer to {uci_closer}"
     lines.extend([
         "",
         "───────────────────────────────────────────────────────────────",
         "  COMBINED",
         "───────────────────────────────────────────────────────────────",
         f"  Personal : {out_personal.get('status', 'N/A')}",
-        f"  UCI      : closer to {uci_closer}",
+        f"  UCI      : {uci_summary}",
         "═══════════════════════════════════════════════════════════════",
     ])
     return "\n".join(lines)
@@ -162,18 +170,30 @@ def run_live(progress=gr.Progress()) -> tuple[str, tuple[int, np.ndarray] | None
         return err, None
 
 
-def run_from_file(audio_in, progress=gr.Progress()) -> str:
-    """Upload one file (≥15 s) → full check (personal + UCI) → detailed report."""
+def _audio_input_to_path(audio_in):
+    """Normalize Gradio Audio (filepath) value to a single path string."""
     if audio_in is None:
-        return "Upload a WAV file (≥15 s). One button runs all checks."
-    path = audio_in if isinstance(audio_in, str) else (audio_in.get("name") or audio_in)
+        return None
+    if isinstance(audio_in, str):
+        return audio_in.strip() or None
+    if isinstance(audio_in, dict):
+        return (audio_in.get("name") or audio_in.get("path")) or None
+    if isinstance(audio_in, (list, tuple)) and audio_in:
+        return _audio_input_to_path(audio_in[0])
+    return None
+
+
+def run_from_file(audio_in, progress=gr.Progress()) -> tuple[str, str | None]:
+    """Upload one file (≥15 s) → full check (personal + UCI) → detailed report. Clears upload after run."""
+    path = _audio_input_to_path(audio_in)
     if not path:
-        return "Upload a WAV file."
+        return "Upload a WAV file (≥15 s). One button runs all checks.", None
+    path = str(Path(path).resolve())
     try:
         progress(0.15, desc="Loading audio...")
-        y, _ = librosa.load(str(path), sr=SAMPLE_RATE, mono=True)
+        y, _ = librosa.load(path, sr=SAMPLE_RATE, mono=True)
         if len(y) < MIN_SAMPLES_UCI:
-            return f"File too short; need ≥15 s (got {len(y)/SAMPLE_RATE:.1f} s)."
+            return f"File too short; need ≥15 s (got {len(y)/SAMPLE_RATE:.1f} s).", None
         level = float(np.max(np.abs(y[:MIN_SAMPLES_UCI])))
         progress(0.3, desc="Personal baseline...")
         n = int(CHUNK_SEC * SAMPLE_RATE)
@@ -190,7 +210,7 @@ def run_from_file(audio_in, progress=gr.Progress()) -> str:
         out_healthy = client_network.infer(VULTR_BASE_URL, UCI_PATIENT_ID, uci_vec)
         out_pd = client_network.infer(VULTR_BASE_URL, UCI_PD_PATIENT_ID, uci_vec)
         report = _format_detailed_report(
-            source_label="File (first 15 s): " + (Path(path).name if isinstance(path, str) else "uploaded"),
+            source_label="File (first 15 s): " + Path(path).name,
             level=level,
             level_warning=None,
             personal_vec=personal_vec,
@@ -201,9 +221,9 @@ def run_from_file(audio_in, progress=gr.Progress()) -> str:
             raw_hnr=feats.get("hnr"),
             raw_fo=feats.get("pitch_mean"),
         )
-        return report
+        return report, None
     except Exception as e:
-        return f"Error: {e}\n\n{traceback.format_exc()}"
+        return f"Error: {e}\n\n{traceback.format_exc()}", None
 
 
 def show_profile() -> str:
@@ -229,19 +249,46 @@ def show_profile() -> str:
 def build_ui():
     with gr.Blocks(title="Aegis Hypophonia") as demo:
         gr.Markdown("# Aegis — Voice check")
-        gr.Markdown("One action runs **all** checks: personal baseline + UCI (healthy vs PD). Need **≥15 s** of audio.")
-        with gr.Row():
-            record_btn = gr.Button("Record live & analyze", variant="primary")
-            file_in = gr.Audio(type="filepath", label="Upload WAV (≥15 s)", sources=["upload"])
-        file_btn = gr.Button("Upload & analyze (all checks)", variant="primary")
-        out = gr.Textbox(label="Detailed report", interactive=False, lines=28, max_lines=40)
-        playback = gr.Audio(label="Recorded audio (playback)", interactive=False)
-        record_btn.click(fn=run_live, inputs=[], outputs=[out, playback])
-        file_btn.click(fn=run_from_file, inputs=[file_in], outputs=out)
-        gr.Markdown("---")
-        profile_btn = gr.Button("Show trained baseline (profile)")
-        profile_out = gr.Textbox(label="Profile", interactive=False, lines=12)
-        profile_btn.click(fn=show_profile, inputs=[], outputs=profile_out)
+        with gr.Tabs():
+            with gr.TabItem("Record / Upload"):
+                gr.Markdown("One action runs **all** checks: personal baseline + UCI (healthy vs PD). Need **≥15 s** of audio.")
+                with gr.Row():
+                    record_btn = gr.Button("Record live & analyze", variant="primary")
+                    file_in = gr.Audio(type="filepath", label="Upload WAV (≥15 s)", sources=["upload"])
+                file_btn = gr.Button("Upload & analyze (all checks)", variant="primary")
+                out = gr.Textbox(label="Detailed report", interactive=False, lines=28, max_lines=40)
+                playback = gr.Audio(label="Recorded audio (playback)", interactive=False)
+                record_btn.click(fn=run_live, inputs=[], outputs=[out, playback])
+                file_btn.click(fn=run_from_file, inputs=[file_in], outputs=[out, file_in])
+                gr.Markdown("---")
+                profile_btn = gr.Button("Show trained baseline (profile)")
+                profile_out = gr.Textbox(label="Profile", interactive=False, lines=12)
+                profile_btn.click(fn=show_profile, inputs=[], outputs=profile_out)
+            with gr.TabItem("Live demo"):
+                gr.Markdown("**Real-time detection** — start the mic, speak for **10 s**, then see numbers and probabilities update every 2 s.")
+                with gr.Row():
+                    start_btn = gr.Button("Start", variant="primary")
+                    stop_btn = gr.Button("Stop")
+                live_display = gr.Markdown(
+                    value="Click **Start** to begin. Results appear here as you speak."
+                )
+                running_state = gr.State(value=False)
+                start_btn.click(
+                    fn=start_listening,
+                    inputs=[],
+                    outputs=[live_display, running_state],
+                )
+                stop_btn.click(
+                    fn=stop_listening,
+                    inputs=[],
+                    outputs=[live_display, running_state],
+                )
+                timer = gr.Timer(value=2)
+                timer.tick(
+                    fn=live_tick,
+                    inputs=[running_state],
+                    outputs=[live_display],
+                )
     return demo
 
 

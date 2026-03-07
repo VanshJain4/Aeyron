@@ -79,8 +79,8 @@ def enroll(req: EnrollRequest):
         baseline_loss = torch.nn.functional.mse_loss(recon_all, scaled_t).item()
         per_sample_mse = torch.nn.functional.mse_loss(recon_all, scaled_t, reduction="none").mean(dim=1)
         mse_np = per_sample_mse.cpu().numpy()
-        # Stricter: 80th percentile — only best 80% of baseline pass as normal
-        threshold = float(np.percentile(mse_np, 80))
+        # 90th percentile — relaxed so protocol-mismatched good voice can be "within normal"
+        threshold = float(np.percentile(mse_np, 90))
     patient_id = req.patient_id.strip()
     if not patient_id:
         raise HTTPException(400, "patient_id required")
