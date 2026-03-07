@@ -38,24 +38,27 @@ def extract_uci_vectors_from_dir(audio_dir: Path, max_files: int = 200) -> list[
 
     vectors = []
     skipped = 0
+    n = int(CHUNK_SEC * SAMPLE_RATE)
     for path in files[:max_files]:
         try:
             y, _ = librosa.load(str(path), sr=SAMPLE_RATE, mono=True)
             if len(y) < int(1.0 * SAMPLE_RATE):
                 skipped += 1
                 continue
-            n = int(CHUNK_SEC * SAMPLE_RATE)
-            task_a = y[:n]
-            # task_b: next chunk if available, else repeat task_a for pitch stats
-            task_b = y[n:2*n] if len(y) >= 2 * n else y[:n]
-            feats = extract_features(task_a, task_b)
-            vec = uci_features_to_vector(feats)
-            # Skip zero vectors (PointProcess failed AND HNR is 0)
-            if all(v == 0.0 for v in vec):
-                skipped += 1
-                continue
-            vectors.append(vec)
-        except Exception as e:
+            # Extract one vector per 5s chunk (same as train_baseline.py)
+            chunk_starts = range(0, len(y) - n, n)
+            if not chunk_starts:
+                chunk_starts = [0]
+            for start in chunk_starts:
+                task_a = y[start:start + n]
+                task_b = y[start + n:start + 2*n] if len(y) >= start + 2*n else task_a
+                feats = extract_features(task_a, task_b)
+                vec = uci_features_to_vector(feats)
+                if all(v == 0.0 for v in vec):
+                    skipped += 1
+                    continue
+                vectors.append(vec)
+        except Exception:
             skipped += 1
             continue
 

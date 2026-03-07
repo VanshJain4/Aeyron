@@ -85,11 +85,20 @@ def _risk_flagged(ratio: float) -> float:
 def _uci_p_healthy(mse_healthy: float, mse_pd: float) -> float:
     """
     Relative likelihood healthy vs PD from reconstruction MSEs.
-    Lower MSE to a cohort = closer to that cohort. P(healthy) = mse_pd / (mse_h + mse_pd).
+    Uses log-ratio sharpening: p = sigmoid(k * log(mse_pd / mse_healthy)).
+    k=3 gives ~71% for ratio 1.35x healthy-side, ~97% for ratio 3x PD-side.
     """
-    if mse_healthy + mse_pd <= 0:
+    import math
+    if mse_healthy <= 0 and mse_pd <= 0:
         return 50.0
-    return 100.0 * mse_pd / (mse_healthy + mse_pd)
+    if mse_healthy <= 0:
+        return 0.0
+    if mse_pd <= 0:
+        return 100.0
+    k = 3.0
+    log_ratio = k * math.log(mse_pd / mse_healthy)
+    p = 1.0 / (1.0 + math.exp(-log_ratio))
+    return 100.0 * p
 
 
 def live_tick(running: bool) -> str:
