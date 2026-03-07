@@ -1,8 +1,10 @@
 {
-  "peak_to_decay_ratio": 1.278278112411499,
-  "spectral_centroid": 1931.4558017294166,
-  "spectral_slope": -0.00023914971943284733,
-  "rise_time": 31.368102796674226,
-  "zero_crossing_rate": 0.03786504836309523,
-  "expulsive_duration": 49.58427815570673
+  "peak_to_decay_ratio": 0.6230199734369913,
+  "spectral_centroid": 952.5998994289316,
+  "spectral_slope": -0.0015431688427577888,
+  "rise_time": 41.64777021919878,
+  "zero_crossing_rate": 0.057712928921568624,
+  "expulsive_duration": 50.21919879062736,
+  "crest_factor": 3.0897757782277306,
+  "phase_power_ratio": 0.17384756447289426
 }

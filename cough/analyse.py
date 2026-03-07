@@ -77,6 +77,8 @@ def analyze(
                 "rise_time",
                 "zero_crossing_rate",
                 "expulsive_duration",
+                "crest_factor",
+                "phase_power_ratio",
             )
         },
         "severity": scores["severity"],

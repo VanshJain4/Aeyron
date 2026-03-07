@@ -1,6 +1,10 @@
 """
-Cough detection: isolates individual cough segments from raw audio.
-Uses librosa RMS envelope + dynamic thresholding + duration filtering.
+Cough detection using a hysteresis comparator on the RMS envelope.
+Algorithm adapted from Orlandic et al. (2020) — detect-segment-cough.
+
+Key improvement over single-threshold: two thresholds (low + high) prevent
+jittery start/stop when the cough briefly dips during expiration.
+Adaptive baseline (median of non-silent frames) handles variable mic gain.
 """
 from __future__ import annotations
 
@@ -14,62 +18,74 @@ def detect_coughs(
     sr: int = 22050,
     min_duration_ms: float = 80.0,
     max_duration_ms: float = 900.0,
-    merge_gap_ms: float = 60.0,
-    threshold_multiplier: float = 3.0,
+    padding_ms: float = 25.0,
+    th_l_mult: float = 2.0,
+    th_h_mult: float = 8.0,
+    tolerance_ms: float = 10.0,
 ) -> list[tuple[int, int]]:
     """
     Detect cough segments in an audio file.
+
+    Uses adaptive hysteresis:
+      - th_l = th_l_mult × median RMS  (low threshold: cough may continue)
+      - th_h = th_h_mult × median RMS  (high threshold: new cough starts here)
+      - tolerance: cough ends only after tolerance_ms consecutive frames below th_l
 
     Returns list of (start_sample, end_sample) tuples.
     """
     y, _ = librosa.load(audio_path, sr=sr)
 
-    # RMS envelope: 20 ms frames, 5 ms hops → smooth power curve
+    # Smooth RMS envelope: 20 ms frames, 5 ms hops
     frame_length = int(sr * 0.020)
     hop_length = int(sr * 0.005)
     rms = librosa.feature.rms(y=y, frame_length=frame_length, hop_length=hop_length)[0]
-
-    # Smooth with median filter to suppress impulse noise
     rms_smooth = signal.medfilt(rms, kernel_size=5)
 
-    # Dynamic threshold: multiplier × median of non-silent frames
+    # Adaptive thresholds: based on median of active (non-silent) frames
     nonzero = rms_smooth[rms_smooth > 1e-6]
     baseline = float(np.median(nonzero)) if len(nonzero) > 0 else float(np.median(rms_smooth))
-    threshold = threshold_multiplier * baseline
+    th_l = th_l_mult * baseline
+    th_h = th_h_mult * baseline
 
-    # Map frame-level envelope back to sample-level using linear interpolation
-    frame_times = np.arange(len(rms_smooth)) * hop_length
-    sample_times = np.arange(len(y))
-    envelope_full = np.interp(sample_times, frame_times, rms_smooth)
+    # Interpolate frame-level RMS back to sample-level
+    frame_centers = np.arange(len(rms_smooth)) * hop_length
+    envelope = np.interp(np.arange(len(y)), frame_centers, rms_smooth)
 
-    # Find contiguous regions above threshold
-    above = (envelope_full > threshold).astype(np.int8)
-    changes = np.diff(above, prepend=0, append=0)
-    starts = np.where(changes == 1)[0]
-    ends = np.where(changes == -1)[0]
-
-    if len(starts) == 0:
-        return []
-
-    # Merge segments with a gap shorter than merge_gap_ms
-    merge_gap_samples = int(sr * merge_gap_ms / 1000.0)
-    merged_starts = [starts[0]]
-    merged_ends = [ends[0]]
-    for s, e in zip(starts[1:], ends[1:]):
-        if s - merged_ends[-1] <= merge_gap_samples:
-            merged_ends[-1] = e
-        else:
-            merged_starts.append(s)
-            merged_ends.append(e)
-
-    # Duration filter
+    # Hysteresis state machine (Orlandic et al. 2020)
+    padding = int(sr * padding_ms / 1000.0)
     min_samples = int(sr * min_duration_ms / 1000.0)
     max_samples = int(sr * max_duration_ms / 1000.0)
+    tolerance = int(sr * tolerance_ms / 1000.0)
 
-    coughs = []
-    for start, end in zip(merged_starts, merged_ends):
-        duration = end - start
-        if min_samples <= duration <= max_samples:
-            coughs.append((int(start), int(end)))
+    segments: list[tuple[int, int]] = []
+    in_cough = False
+    cough_start = 0
+    below_count = 0
+    n = len(envelope)
 
-    return coughs
+    for i in range(n):
+        val = envelope[i]
+        if in_cough:
+            if val < th_l:
+                below_count += 1
+                if below_count > tolerance:
+                    end = min(i + padding, n)
+                    in_cough = False
+                    dur = end - cough_start
+                    if min_samples <= dur <= max_samples:
+                        segments.append((max(0, cough_start), end))
+            elif i == n - 1:
+                end = i
+                in_cough = False
+                dur = end - cough_start
+                if min_samples <= dur <= max_samples:
+                    segments.append((max(0, cough_start), end))
+            else:
+                below_count = 0
+        else:
+            if val > th_h:
+                cough_start = max(0, i - padding)
+                in_cough = True
+                below_count = 0
+
+    return segments
