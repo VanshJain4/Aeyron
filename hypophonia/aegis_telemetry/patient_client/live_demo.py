@@ -1,6 +1,12 @@
 """
 Real-time voice detection for demo: mic stream → last 10 s → features + infer → live numbers.
+Profiling: each tick appends one row to live_demo_profile.csv for later analysis.
 """
+import csv
+import traceback
+from pathlib import Path
+from datetime import datetime, timezone
+
 import numpy as np
 
 from core.config import VULTR_BASE_URL, PATIENT_ID, UCI_PATIENT_ID, UCI_PD_PATIENT_ID
@@ -14,7 +20,31 @@ CHUNK_SEC = 5.0
 LIVE_BUFFER_SEC = 10.0
 MIN_SAMPLES = int(LIVE_BUFFER_SEC * SAMPLE_RATE)
 
+PROFILE_LOG = Path(__file__).resolve().parent / "live_demo_profile.csv"
+PROFILE_HEADER = (
+    "timestamp_utc",
+    "mse_personal", "th_personal", "ratio_personal", "status_personal", "risk_pct",
+    "mse_healthy", "mse_pd", "closer", "p_healthy", "p_pd",
+)
+
 _buffer: LiveMicBuffer | None = None
+
+
+def _log_tick(
+    mse_p: float, th_p: float, ratio_p: float, status_p: str, risk_pct: float,
+    mse_h: float, mse_pd: float, closer: str, p_healthy: float, p_pd: float,
+) -> None:
+    row = (
+        datetime.now(timezone.utc).isoformat(),
+        f"{mse_p:.6f}", f"{th_p:.6f}", f"{ratio_p:.6f}", status_p, f"{risk_pct:.2f}",
+        f"{mse_h:.6f}", f"{mse_pd:.6f}", closer, f"{p_healthy:.2f}", f"{p_pd:.2f}",
+    )
+    file_exists = PROFILE_LOG.is_file()
+    with open(PROFILE_LOG, "a", newline="") as f:
+        w = csv.writer(f)
+        if not file_exists:
+            w.writerow(PROFILE_HEADER)
+        w.writerow(row)
 
 
 def _get_buffer() -> LiveMicBuffer:
@@ -99,22 +129,36 @@ def live_tick(running: bool) -> str:
         p_healthy = _uci_p_healthy(mse_h, mse_pd)
         p_pd = 100.0 - p_healthy
 
+        _log_tick(
+            mse_p, th_p, ratio_p, status_p, risk_pct,
+            mse_h, mse_pd, closer, p_healthy, p_pd,
+        )
+
+        uci_names = ("Jitter (%)", "Shimmer (dB)", "HNR (dB)", "NHR", "DDP")
+        uci_rows = "\n".join(f"| {n} | {v:.4f} |" for n, v in zip(uci_names, uci_vec))
+        jitter_warn = " ⚠️ Jitter=0: PointProcess failed (noisy mic or short vowel)" if uci_vec[0] == 0.0 else ""
+        personal_names = ("mean_energy_db", "energy_std_db", "spectral_centroid", "spectral_bw", "zcr")
+        personal_rows = "\n".join(f"| {n} | {v:.4f} |" for n, v in zip(personal_names, personal_vec))
         return (
-            "### Personal (your baseline)\n\n"
+            "## LIVE — Voice Analysis\n\n"
+            "### Raw UCI features (Praat, last 10 s)\n\n"
+            f"|  |  |\n|--|--|\n{uci_rows}\n"
+            f"{jitter_warn}\n\n"
+            "### UCI result (healthy vs PD)\n\n"
             f"|  |  |\n|--|--|\n"
-            f"| **MSE** | {mse_p:.4f} |\n"
-            f"| **Threshold** | {th_p:.4f} |\n"
-            f"| **Ratio** (MSE/threshold) | {ratio_p:.3f} |\n"
-            f"| **Result** | **{status_p}** |\n"
-            f"| **Risk %** (0%=normal, 100%=flagged) | **{risk_pct:.0f}%** |\n\n"
-            "---\n\n"
-            "### UCI (healthy vs PD)\n\n"
-            f"|  |  |\n|--|--|\n"
-            f"| **MSE vs healthy** | {mse_h:.4f} |\n"
-            f"| **MSE vs PD** | {mse_pd:.4f} |\n"
+            f"| MSE vs healthy | {mse_h:.6f} |\n"
+            f"| MSE vs PD | {mse_pd:.6f} |\n"
             f"| **Closer to** | **{closer}** |\n"
-            f"| **Healthy likelihood** | {p_healthy:.1f}% |\n"
-            f"| **PD likelihood** | {p_pd:.1f}% |\n"
+            f"| Healthy likelihood | {p_healthy:.1f}% |\n"
+            f"| PD likelihood | {p_pd:.1f}% |\n\n"
+            "---\n\n"
+            "### Personal baseline (librosa)\n\n"
+            f"|  |  |\n|--|--|\n{personal_rows}\n"
+            f"| MSE | {mse_p:.6f} |\n"
+            f"| Threshold | {th_p:.6f} |\n"
+            f"| Ratio | {ratio_p:.3f} |\n"
+            f"| Result | **{status_p}** |\n"
+            f"| Risk % | **{risk_pct:.0f}%** |\n"
         )
     except Exception as e:
-        return f"**Error:** {e}"
+        return f"**Error:** {e}\n\n```\n{traceback.format_exc()}\n```"

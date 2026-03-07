@@ -36,8 +36,6 @@ def _format_detailed_report(
     uci_vec: list[float],
     out_healthy: dict,
     out_pd: dict,
-    raw_hnr: float | None = None,
-    raw_fo: float | None = None,
 ) -> str:
     """Single detailed report: all numbers for personal + UCI (healthy vs PD)."""
     score_healthy = out_healthy.get("anomaly_score") or 0.0
@@ -48,17 +46,6 @@ def _format_detailed_report(
     th_pd = out_pd.get("threshold")
     mse_p = out_personal.get("anomaly_score") or 0.0
     ratio_p = (mse_p / th_p) if th_p and th_p > 0 else None
-
-    hnr_out_of_range = (
-        raw_hnr is not None
-        and len(uci_vec) == 5
-        and (raw_hnr < 8.0 or raw_hnr > 33.0)
-    )
-    fo_corrected = (
-        raw_fo is not None
-        and len(uci_vec) >= 1
-        and abs(uci_vec[0] - raw_fo) > 1.0
-    )
 
     lines = [
         "═══════════════════════════════════════════════════════════════",
@@ -89,14 +76,10 @@ def _format_detailed_report(
         "───────────────────────────────────────────────────────────────",
         "  2. UCI BASELINE (healthy vs PD — Praat, 5 s vowel + 10 s speech)",
         "───────────────────────────────────────────────────────────────",
-        "  Features (Fo, Fhi, Jitter, Shimmer, HNR):",
+        "  Raw features (Fo Hz, Fhi Hz, Jitter %, Shimmer dB, HNR dB):",
     ])
     for name, val in zip(UCI_FEATURE_ORDER, uci_vec):
-        lines.append(f"    {name:28s} : {val:.6f}")
-    if hnr_out_of_range:
-        lines.append(f"    (HNR: raw {raw_hnr:.1f} dB out of range → set to UCI healthy mean 24.7 dB)")
-    if fo_corrected and raw_fo is not None:
-        lines.append(f"    (Fo: raw {raw_fo:.0f} Hz corrected to 182 Hz for UCI comparison.)")
+        lines.append(f"    {name:28s} : {val:.4f}")
     lines.append(f"  MSE vs healthy baseline      : {score_healthy:.6f}  (threshold: {th_h if th_h is not None else 'N/A'})")
     lines.append(f"  MSE vs PD baseline           : {score_pd:.6f}  (threshold: {th_pd if th_pd is not None else 'N/A'})")
     both_uci_below = th_h and th_pd and score_healthy < th_h and score_pd < th_pd
@@ -108,7 +91,7 @@ def _format_detailed_report(
             lines.append(f"  (Healthy: above threshold — {score_healthy / th_h:.2f}×)")
         if th_pd and score_pd >= th_pd:
             lines.append(f"  (PD: above threshold — {score_pd / th_pd:.2f}×)")
-    lines.append(f"  (Recording protocol differs from UCI; not a clinical diagnosis.)")
+    lines.append(f"  (Not a clinical diagnosis.)")
     uci_summary = "within normal (both cohorts)" if both_uci_below else f"closer to {uci_closer}"
     lines.extend([
         "",
@@ -159,14 +142,12 @@ def run_live(progress=gr.Progress()) -> tuple[str, tuple[int, np.ndarray] | None
             uci_vec=uci_vec,
             out_healthy=out_healthy,
             out_pd=out_pd,
-            raw_hnr=feats.get("hnr"),
-            raw_fo=feats.get("pitch_mean"),
         )
         return report, (SAMPLE_RATE, samples)
     except Exception as e:
         err = f"Error: {type(e).__name__}: {e}\n\n{traceback.format_exc()}"
         if "9986" in str(e) or "PortAudio" in str(e):
-            err += "\n\n→ Grant Terminal/Cursor mic in System Settings → Privacy → Microphone."
+            err += "\n\n→ Grant microphone access in System Settings → Privacy → Microphone."
         return err, None
 
 
@@ -218,8 +199,6 @@ def run_from_file(audio_in, progress=gr.Progress()) -> tuple[str, str | None]:
             uci_vec=uci_vec,
             out_healthy=out_healthy,
             out_pd=out_pd,
-            raw_hnr=feats.get("hnr"),
-            raw_fo=feats.get("pitch_mean"),
         )
         return report, None
     except Exception as e:
@@ -247,50 +226,41 @@ def show_profile() -> str:
 
 
 def build_ui():
-    with gr.Blocks(title="Aegis Hypophonia") as demo:
-        gr.Markdown("# Aegis — Voice check")
+    with gr.Blocks(title="Aegis — Hypophonia Detection") as demo:
+        gr.Markdown("# Aegis — Hypophonia Detection\nReal-time voice analysis. Updates every 2 s. Shows raw features + healthy vs PD.")
         with gr.Tabs():
-            with gr.TabItem("Record / Upload"):
-                gr.Markdown("One action runs **all** checks: personal baseline + UCI (healthy vs PD). Need **≥15 s** of audio.")
-                with gr.Row():
-                    record_btn = gr.Button("Record live & analyze", variant="primary")
-                    file_in = gr.Audio(type="filepath", label="Upload WAV (≥15 s)", sources=["upload"])
-                file_btn = gr.Button("Upload & analyze (all checks)", variant="primary")
-                out = gr.Textbox(label="Detailed report", interactive=False, lines=28, max_lines=40)
-                playback = gr.Audio(label="Recorded audio (playback)", interactive=False)
-                record_btn.click(fn=run_live, inputs=[], outputs=[out, playback])
-                file_btn.click(fn=run_from_file, inputs=[file_in], outputs=[out, file_in])
-                gr.Markdown("---")
-                profile_btn = gr.Button("Show trained baseline (profile)")
-                profile_out = gr.Textbox(label="Profile", interactive=False, lines=12)
-                profile_btn.click(fn=show_profile, inputs=[], outputs=profile_out)
             with gr.TabItem("Live demo"):
-                gr.Markdown("**Real-time detection** — start the mic, speak for **10 s**, then see numbers and probabilities update every 2 s.")
+                gr.Markdown(
+                    "**Start** the mic, then speak (or play audio through speakers) for 10 s. "
+                    "Results update every 2 s.\n\n"
+                    "UCI compares: **first 5 s** = sustained vowel (Jitter/Shimmer/HNR), **next 5 s** = speech (Fo/Fhi)."
+                )
                 with gr.Row():
-                    start_btn = gr.Button("Start", variant="primary")
-                    stop_btn = gr.Button("Stop")
+                    start_btn = gr.Button("Start", variant="primary", scale=1)
+                    stop_btn = gr.Button("Stop", scale=1)
                 live_display = gr.Markdown(
                     value="Click **Start** to begin. Results appear here as you speak."
                 )
                 running_state = gr.State(value=False)
-                start_btn.click(
-                    fn=start_listening,
-                    inputs=[],
-                    outputs=[live_display, running_state],
-                )
-                stop_btn.click(
-                    fn=stop_listening,
-                    inputs=[],
-                    outputs=[live_display, running_state],
-                )
+                start_btn.click(fn=start_listening, inputs=[], outputs=[live_display, running_state])
+                stop_btn.click(fn=stop_listening, inputs=[], outputs=[live_display, running_state])
                 timer = gr.Timer(value=2)
-                timer.tick(
-                    fn=live_tick,
-                    inputs=[running_state],
-                    outputs=[live_display],
+                timer.tick(fn=live_tick, inputs=[running_state], outputs=[live_display])
+            with gr.TabItem("Record once (15 s)"):
+                gr.Markdown(
+                    "Records 15 s from mic → full analysis.\n\n"
+                    "**First 5 s** → say 'Ahhhh' (vowel for Praat). **Next 10 s** → speak freely."
                 )
+                record_btn = gr.Button("Record 15 s & analyze", variant="primary")
+                out = gr.Textbox(label="Report", interactive=False, lines=30, max_lines=45)
+                playback = gr.Audio(label="Playback", interactive=False)
+                record_btn.click(fn=run_live, inputs=[], outputs=[out, playback])
+                gr.Markdown("---")
+                profile_btn = gr.Button("Show enrolled baseline profile")
+                profile_out = gr.Textbox(label="Profile", interactive=False, lines=12)
+                profile_btn.click(fn=show_profile, inputs=[], outputs=profile_out)
     return demo
 
 
 if __name__ == "__main__":
-    build_ui().launch()
+    build_ui().launch(strict_cors=False)

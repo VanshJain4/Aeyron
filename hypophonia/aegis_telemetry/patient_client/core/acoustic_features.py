@@ -10,14 +10,11 @@ PITCH_FLOOR = 75.0
 PITCH_CEILING = 500.0
 SAMPLE_RATE = 16000
 FEATURE_ORDER = ("rms_mean", "pitch_std", "jitter", "shimmer", "hnr")
-# UCI Parkinson CSV: Fo(Hz), Fhi(Hz), Jitter(%), Shimmer(dB), HNR
-UCI_FEATURE_ORDER = ("Fo", "Fhi", "Jitter", "Shimmer", "HNR")
-# UCI HNR: range 8–33 dB; healthy mean ~24.7. Use mean when raw out of range (not floor).
-UCI_HNR_MIN, UCI_HNR_MAX = 8.0, 33.0
-UCI_HEALTHY_MEAN_HNR = 24.68
-# UCI healthy mean Fo ≈182 Hz; our protocol often gives lower Fo → correct so "closer to" is meaningful
-UCI_HEALTHY_MEAN_FO = 182.0
-UCI_FO_CORRECTION_THRESHOLD = 170.0  # below this, treat as protocol artifact and use healthy mean
+# UCI features: gender-independent vocal quality markers only.
+# Fo/Fhi excluded — pitch is gender-dependent and causes healthy males to
+# match PD distribution (male Fo ~130–160 Hz ≈ UCI PD mean 145 Hz).
+# NHR = noise-to-harmonics ratio; DDP = 3× jitter (both in UCI CSV).
+UCI_FEATURE_ORDER = ("Jitter", "Shimmer", "HNR", "NHR", "DDP")
 
 
 def _sound_from_samples(samples: np.ndarray, sr: float = SAMPLE_RATE) -> parselmouth.Sound:
@@ -55,8 +52,18 @@ def features_from_task_a(sound: parselmouth.Sound) -> tuple[float, float, float]
         jitter, shimmer = 0.0, 0.0
     harmonicity = sound.to_harmonicity(time_step=0.01, minimum_pitch=PITCH_FLOOR)
     times = harmonicity.xs()
-    hnr_values = [harmonicity.get_value(t) for t in times if not np.isnan(harmonicity.get_value(t))]
-    hnr = float(np.mean(hnr_values)) if hnr_values else 0.0
+    # Only include voiced frames (Praat returns NaN for unvoiced).
+    # Exclude extreme negatives (< -60 dB) which are silence/background.
+    # Use 75th percentile rather than mean: this captures the clearest voiced
+    # frames, which is comparable to UCI clinical recordings where subjects
+    # sustained a clean vowel. Mean HNR is dragged down by room noise on
+    # live mic; 75th percentile stays discriminative between healthy and PD.
+    hnr_values = [
+        v for t in times
+        for v in [harmonicity.get_value(t)]
+        if not np.isnan(v) and v > -60.0
+    ]
+    hnr = float(np.percentile(hnr_values, 75)) if hnr_values else 0.0
     return jitter, shimmer, hnr
 
 
@@ -89,20 +96,17 @@ def features_to_vector(features: dict[str, float]) -> list[float]:
 
 def uci_features_to_vector(features: dict[str, float]) -> list[float]:
     """
-    5-dim vector for UCI comparison. Protocol corrections:
-    - HNR out of [8,33] → use UCI healthy mean 24.7.
-    - Fo below 170 Hz (our protocol vs UCI) → use UCI healthy mean 182 Hz so healthy/PD split is meaningful.
+    5-dim vector: [Jitter, Shimmer, HNR, NHR, DDP].
+    All features are gender-independent vocal quality markers — no pitch.
+    - NHR = noise-to-harmonics (inverse of HNR in power, matches UCI NHR column)
+    - DDP = 3 × Jitter (matches UCI Jitter:DDP column = 3 × RAP ≈ 3 × local jitter)
+    PD voices: higher Jitter/Shimmer/NHR/DDP, lower HNR.
     """
-    fo = float(features["pitch_mean"])
-    if fo < UCI_FO_CORRECTION_THRESHOLD:
-        fo = UCI_HEALTHY_MEAN_FO
+    jitter = float(features["jitter"])
+    shimmer = float(features["shimmer"])
     hnr = float(features["hnr"])
-    if hnr < UCI_HNR_MIN or hnr > UCI_HNR_MAX:
-        hnr = UCI_HEALTHY_MEAN_HNR
-    return [
-        fo,
-        features["pitch_max"],
-        features["jitter"],
-        features["shimmer"],
-        hnr,
-    ]
+    # NHR: power ratio of noise to harmonics. HNR=20log10(H/N) → NHR=10^(-HNR/10).
+    # Guard against huge negative HNR (silence) giving NHR > 10.
+    nhr = min(10.0 ** (-hnr / 10.0), 2.0) if hnr > -100.0 else 2.0
+    ddp = 3.0 * jitter
+    return [jitter, shimmer, hnr, nhr, ddp]

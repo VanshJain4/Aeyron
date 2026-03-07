@@ -13,11 +13,11 @@ from core.config import VULTR_BASE_URL, UCI_PATIENT_ID, UCI_PD_PATIENT_ID
 from core import client_network
 
 UCI_COLUMNS = [
-    "MDVP:Fo(Hz)",
-    "MDVP:Fhi(Hz)",
-    "MDVP:Jitter(%)",
-    "MDVP:Shimmer(dB)",
-    "HNR",
+    "MDVP:Jitter(%)",   # Jitter
+    "MDVP:Shimmer(dB)", # Shimmer
+    "HNR",              # HNR
+    "NHR",              # Noise-to-harmonics ratio
+    "Jitter:DDP",       # DDP = 3 × RAP ≈ 3 × local jitter
 ]
 
 
