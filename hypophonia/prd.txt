@@ -1,0 +1,167 @@
+Cursor Master PRD: Project "Aegis" (Edge-to-GPU Neurological Telemetry)
+1. Project Context & Philosophy
+Role: You are an expert Principal Engineer, PyTorch ML Architect, and Speech Scientist.
+Goal: Build a Zero-Trust, Edge-to-Cloud neurological telemetry system to track Hypophonia (vocal flattening) and Hypomimia (facial masking) in Parkinson's patients.
+Core Architecture: We are building a distributed system.
+
+The Edge Client (Local): Extracts physical acoustic/visual features from the user. NO cloud data processing.
+
+The Vultr GPU Node (Remote): Runs a personalized PyTorch Autoencoder to detect anomalies (reconstruction error).
+
+The Tailscale Tunnel: Connects the Edge to the GPU completely off the public internet for HIPAA compliance.
+
+Strict Directives (DO NOT DEVIATE):
+
+No Amplitude Normalization: We are tracking volume drops. Normalizing audio will destroy our signal.
+
+Deterministic Feature Extraction: We extract Praat/Parselmouth features locally. Raw .wav or .mp4 files NEVER leave the patient's device. Only a 1D JSON array of 6 floats is sent to the Vultr server.
+
+Personalized ML (N-of-1): The model is a PyTorch Autoencoder trained only on the specific user's Day 1-5 baseline data. We calculate Mean Squared Error (MSE) to flag deviations.
+
+2. Global Directory Structure
+Please build the workspace using this exact structure. We have two distinct applications.
+
+Plaintext
+aegis_telemetry/
+│
+├── patient_client/                 # Runs on Patient's Laptop/Phone
+│   ├── requirements.txt
+│   ├── main_ui.py                  # Gradio UI for patient interaction
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── capture.py              # sounddevice (audio) & subprocess (C++)
+│   │   ├── preprocessor.py         # Silero VAD logic
+│   │   ├── acoustic_features.py    # Parselmouth (Jitter, Shimmer, RMS, F0)
+│   │   └── client_network.py       # Handles HTTP requests to Tailscale IP
+│   ├── presage_cpp/                # Presage C++ SDK microservice
+│   │   ├── main.cpp                # Captures webcam, calculates facial_variance
+│   │   └── build.sh
+│   └── data/                       # Local SQLite (session_logs.db)
+│
+├── vultr_ml_server/                # Runs on Vultr GPU via Tailscale
+│   ├── requirements.txt
+│   ├── server.py                   # FastAPI application
+│   ├── models/
+│   │   ├── __init__.py
+│   │   └── autoencoder.py          # PyTorch nn.Module architecture
+│   └── saved_weights/              # Stores <patient_id>.pt files
+│
+└── doctor_dashboard/               # Runs on Doctor's Machine (Tailscale)
+    ├── index.html                  # Simple frontend fetching Vultr API data
+    └── app.js                      # Chart.js rendering
+3. Module Specifications: The Patient Client (patient_client/)
+3.1 capture.py & preprocessor.py
+
+Tasks: Implement a two-task recording flow.
+
+Task A (Sustained Vowel): 5-second recording of "Ahhhh". Rule: DO NOT run VAD on this. Just trim the first and last 0.5 seconds.
+
+Task B (Spontaneous Speech): 15-second recording. Rule: Run Silero VAD. Strip out silence where probability is < 0.5. Recombine voiced segments.
+
+Audio Specs: 16 kHz, mono WAV. Disable auto-gain.
+
+Presage Hook: During Task B, use subprocess.run to execute the compiled presage_cpp/main binary. It will return a JSON string to stdout containing "facial_variance".
+
+3.2 acoustic_features.py
+
+Use parselmouth.Sound. Extract features carefully using these exact constraints:
+
+Pitch Extraction Constraints: Hardcode pitch_floor = 75 and pitch_ceiling = 500.
+
+Features to Extract (Return as a flat dictionary):
+
+rms_mean: From Task B.
+
+pitch_std: From Task B (Standard deviation of F0).
+
+jitter: From Task A (local jitter via Praat voice report).
+
+shimmer: From Task A (local shimmer via Praat voice report).
+
+hnr: From Task A (Harmonics-to-Noise Ratio).
+
+facial_variance: From the Presage C++ output.
+
+Data output shape: A 1D vector of length 6. Example: [0.45, 22.1, 0.011, 0.032, 19.5, 0.82]
+
+3.3 client_network.py & SQLite
+
+Log the daily 6-feature vector to the local SQLite database (session_logs table).
+
+Phase 1 (Days 1-5): Once 5 sessions are recorded, trigger a POST request to the Vultr ML Server (http://<VULTR_TAILSCALE_IP>:8000/api/enroll) containing the 5x6 array of baseline data.
+
+Phase 2 (Day 6+): Send a POST request to http://<VULTR_TAILSCALE_IP>:8000/api/infer with today's single 1x6 vector. Await the anomaly_score.
+
+4. Module Specifications: The Vultr ML Server (vultr_ml_server/)
+4.1 autoencoder.py (The PyTorch Math)
+
+Design a custom PyTorch Autoencoder to map the 6-dimensional feature vector down to a bottleneck and back.
+
+Architecture (nn.Module):
+
+Encoder: Linear(6, 4) → ReLU → Linear(4, 2) → ReLU
+
+Decoder: Linear(2, 4) → ReLU → Linear(4, 6) → Sigmoid (assuming inputs are min-max scaled 0-1 prior to input).
+
+Loss Function: Mean Squared Error (MSE).
+
+MSE= 
+n
+1
+​	
+  
+i=1
+∑
+n
+​	
+ (Y 
+i
+​	
+ − 
+Y
+^
+  
+i
+​	
+ ) 
+2
+ 
+Optimizer: Adam with learning rate 0.01.
+
+4.2 server.py (FastAPI)
+
+Expose two primary endpoints on 0.0.0.0:8000:
+
+POST /api/enroll: * Input: patient_id (string), baseline_data (List of 5 feature arrays).
+
+Action: Min-max scale the data. Initialize a new Autoencoder model. Move to cuda (if available, else cpu). Train for 150 epochs to minimize MSE. Save the model state dict to saved_weights/<patient_id>.pt and save the MinMax scaler parameters.
+
+Output: {"status": "Model trained successfully", "baseline_loss": 0.002}
+
+POST /api/infer:
+
+Input: patient_id, current_data (1 feature array).
+
+Action: Load the user's .pt file and scaler. Pass the current_data through the model. Calculate the reconstruction error (MSE).
+
+Output: {"anomaly_score": <MSE_VALUE>, "status": "flagged" | "normal"}. (Threshold: if MSE > 3x the baseline_loss, flag it).
+
+5. Doctor Dashboard (doctor_dashboard/)
+A static index.html file that can be served via a simple HTTP server.
+
+Uses Chart.js to draw a line chart of the anomaly_score over time.
+
+Fetches data securely from the Vultr API (add a GET /api/history/{patient_id} endpoint to FastAPI).
+
+6. Execution Plan for Cursor
+Cursor, do not write the entire codebase in one single message, or you will hit output limits. Please acknowledge these instructions and follow this strict step-by-step build sequence:
+
+Step 1: Generate the directory structure, requirements.txt for both Python environments, and the SQLite schema for the Edge Client. Wait for my approval.
+
+Step 2: Write capture.py, preprocessor.py, and acoustic_features.py (The Edge pipeline). Wait for my approval.
+
+Step 3: Write the PyTorch autoencoder.py and the FastAPI server.py (The Cloud GPU backend). Wait for my approval.
+
+Step 4: Write the client_network.py and the Gradio UI to connect the two systems.
+
+Ready? Let's build.
