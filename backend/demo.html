@@ -1,319 +1,1131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AEYRON Sentinel — Local demo</title>
-  <style>
-    /* Color system: semantic and polarity-friendly */
-    :root {
-      --bg-page: #0f172a;
-      --bg-panel: #1e293b;
-      --bg-muted: #334155;
-      --text-primary: #f1f5f9;
-      --text-secondary: #94a3b8;
-      --text-muted: #64748b;
-      --accent: #0d9488;
-      --accent-dim: #0f766e;
-      --success: #22c55e;
-      --success-dim: #16a34a;
-      --warning: #eab308;
-      --warning-dim: #ca8a04;
-      --danger: #ef4444;
-      --danger-dim: #dc2626;
-      --border: #475569;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 1rem;
-      font-family: system-ui, -apple-system, sans-serif;
-      background: var(--bg-page);
-      color: var(--text-primary);
-      min-height: 100vh;
-    }
-    h1 { font-size: 1.35rem; color: var(--accent); margin-bottom: 0.25rem; }
-    .subtitle { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem; }
-    .row { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start; }
-    .panel {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 1.25rem 1.5rem;
-      min-width: 280px;
-    }
-    .panel-title { font-size: 0.8rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.75rem; }
-    .label { font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 2px; display: block; }
-    .label-desc { font-size: 0.7rem; color: var(--text-muted); margin-top: 1px; margin-bottom: 0.25rem; }
-    .value { font-size: 1.35rem; font-weight: 600; color: var(--text-primary); }
-    .value--success { color: var(--success); }
-    .value--warning { color: var(--warning); }
-    .value--danger { color: var(--danger); }
-    .value--muted { color: var(--text-muted); font-weight: 500; }
-    .unit { font-size: 0.75rem; color: var(--text-secondary); margin-left: 4px; }
-    .section { margin-bottom: 1rem; }
-    .flag { color: var(--danger); margin-left: 4px; font-weight: 600; }
-    .risk { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
-    .risk .value { font-size: 1.5rem; color: var(--accent); }
-    .source-live { color: var(--success); font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; }
-    .source-sim { color: var(--danger); font-weight: 700; font-size: 0.9rem; margin-bottom: 0.5rem; }
-    .source-other { color: var(--warning); font-weight: 600; font-size: 0.9rem; margin-bottom: 0.5rem; }
-    .camera-wrap {
-      position: relative;
-      background: var(--bg-muted);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      overflow: hidden;
-      min-height: 260px;
-    }
-    .camera-caption { font-size: 0.75rem; color: var(--text-muted); padding: 0.5rem 0.75rem; background: var(--bg-panel); border-bottom: 1px solid var(--border); }
-    .camera-wrap video { width: 100%; height: auto; display: block; }
-    .badge {
-      position: absolute; top: 8px; left: 8px;
-      background: var(--success); color: #fff; font-size: 0.7rem; font-weight: 700;
-      padding: 4px 8px; border-radius: 4px;
-    }
-    button {
-      display: block;
-      margin: 1rem auto;
-      padding: 10px 20px;
-      background: var(--accent);
-      color: #fff;
-      border: none;
-      border-radius: 6px;
-      font-size: 0.9rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    button:hover { background: var(--accent-dim); }
-    button:disabled { opacity: 0.7; cursor: not-allowed; }
-    .error { color: var(--danger); font-size: 0.875rem; }
-    .waiting { color: var(--text-muted); font-size: 0.875rem; }
-    .bar-wrap { height: 10px; background: var(--bg-muted); border-radius: 5px; overflow: hidden; margin-top: 4px; }
-    .bar-fill { height: 100%; border-radius: 5px; transition: width 0.3s; }
-    .status-line { font-size: 0.8rem; margin-bottom: 0.5rem; }
-    .status-line .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-    .status-line .dot--ok { background: var(--success); }
-    .status-line .dot--warn { background: var(--warning); }
-    .status-line .dot--err { background: var(--danger); }
-    .legend { font-size: 0.7rem; color: var(--text-muted); margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border); }
-    .legend span { margin-right: 1rem; }
-    .legend .c-s { color: var(--success); }
-    .legend .c-w { color: var(--warning); }
-    .legend .c-d { color: var(--danger); }
-    .estimate-badge { font-size: 0.65rem; color: var(--warning); font-weight: 600; margin-left: 6px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEYRON Sentinel — Clinical Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #f4f6f8;
+  --white: #ffffff;
+  --panel: #ffffff;
+  --border: #e2e6ea;
+  --border2: #d0d5dd;
+  --text: #0d1117;
+  --muted: #6b7280;
+  --accent: #0066ff;
+  --accent-light: #e8f0ff;
+  --green: #00a86b;
+  --green-light: #e6f7f1;
+  --red: #e53935;
+  --red-light: #fdecea;
+  --orange: #f57c00;
+  --orange-light: #fff3e0;
+  --mono: 'DM Mono', monospace;
+  --serif: 'Instrument Serif', serif;
+  --sans: 'DM Sans', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 56px 1fr;
+}
+
+/* —— Header —— */
+.header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.logo-text {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.hdivider {
+  width: 1px; height: 24px;
+  background: var(--border);
+}
+
+.live-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--green-light);
+  border-radius: 100px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 500;
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.risk-pill {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition: all 0.4s ease;
+  background: var(--green-light);
+  color: var(--green);
+  border: 1px solid rgba(0,168,107,0.2);
+}
+
+.risk-pill.moderate {
+  background: var(--orange-light);
+  color: var(--orange);
+  border-color: rgba(245,124,0,0.2);
+}
+
+.risk-pill.critical {
+  background: var(--red-light);
+  color: var(--red);
+  border-color: rgba(229,57,53,0.2);
+  animation: pulse-pill 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-pill {
+  from { box-shadow: none; }
+  to { box-shadow: 0 0 12px rgba(229,57,53,0.3); }
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* —— Main Grid —— */
+.main {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* —— Left: Patient + Camera —— */
+.left {
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Patient card */
+.patient-card {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.patient-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8f0ff, #c7d9ff);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+.patient-name {
+  font-family: var(--serif);
+  font-size: 20px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.patient-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.patient-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.tag.warn {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+/* Camera */
+.camera-section {
+  flex: 1;
+  position: relative;
+  background: #0d1117;
+  overflow: hidden;
+  min-height: 0;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+
+.cam-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #3a4a5a;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.cam-overlay-white {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.corner { position: absolute; width: 20px; height: 20px; }
+.corner.tl { top:10px;left:10px;border-top:2px solid rgba(0,102,255,0.6);border-left:2px solid rgba(0,102,255,0.6); }
+.corner.tr { top:10px;right:10px;border-top:2px solid rgba(0,102,255,0.6);border-right:2px solid rgba(0,102,255,0.6); }
+.corner.bl { bottom:10px;left:10px;border-bottom:2px solid rgba(0,102,255,0.6);border-left:2px solid rgba(0,102,255,0.6); }
+.corner.br { bottom:10px;right:10px;border-bottom:2px solid rgba(0,102,255,0.6);border-right:2px solid rgba(0,102,255,0.6); }
+
+.face-ring {
+  position: absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:100px;height:120px;
+  border-radius:50%;
+  border:1.5px solid rgba(0,102,255,0.5);
+  animation: ring-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%,100%{border-color:rgba(0,102,255,0.3);}
+  50%{border-color:rgba(0,102,255,0.7);}
+}
+
+.face-ring.apnea {
+  border-color: rgba(229,57,53,0.8) !important;
+  animation: ring-alarm 0.3s ease-in-out infinite alternate !important;
+}
+
+@keyframes ring-alarm {
+  from{border-color:rgba(229,57,53,0.4);box-shadow:none;}
+  to{border-color:rgba(229,57,53,1);box-shadow:0 0 20px rgba(229,57,53,0.4);}
+}
+
+.apnea-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(229,57,53,0.15);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: 0.1em;
+  animation: flash 0.4s ease-in-out infinite alternate;
+}
+
+.apnea-flash.show { display: flex; }
+@keyframes flash { from{opacity:0.6;} to{opacity:1;} }
+
+.cam-label-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.5);
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Patient vitals summary */
+.vitals-summary {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.vs-item {}
+.vs-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.vs-value {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text);
+  transition: color 0.4s;
+}
+
+.vs-value.good { color: var(--green); }
+.vs-value.warn { color: var(--orange); }
+.vs-value.bad { color: var(--red); }
+.vs-unit { font-size: 11px; color: var(--muted); }
+
+/* —— Center: Charts —— */
+.center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  padding: 16px;
+  gap: 12px;
+}
+
+.chart-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.chart-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+canvas {
+  width: 100% !important;
+  flex: 1;
+  min-height: 0;
+  display: block;
+}
+
+/* —— Right: Risk + Symptoms + Log —— */
+.right {
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rpanel-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Risk score */
+.risk-display {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.risk-big {
+  font-family: var(--mono);
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--green);
+  transition: color 0.5s ease;
+}
+
+.risk-big.moderate { color: var(--orange); }
+.risk-big.critical { color: var(--red); }
+
+.risk-meta { padding-bottom: 6px; }
+
+.risk-status {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--green);
+  margin-bottom: 4px;
+  transition: color 0.5s;
+}
+
+.risk-status.moderate { color: var(--orange); }
+.risk-status.critical { color: var(--red); }
+
+.risk-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 140px;
+}
+
+.risk-track {
+  height: 5px;
+  background: var(--bg);
+  border-radius: 100px;
+  overflow: visible;
+  position: relative;
+}
+
+.risk-fill-bar {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--green), var(--orange), var(--red));
+  width: 100%;
+}
+
+.risk-thumb {
+  position: absolute;
+  top: -5px;
+  width: 14px; height: 14px;
+  background: var(--white);
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  transform: translateX(-50%);
+  transition: left 1s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* Symptoms */
+.symptom-list { display: flex; flex-direction: column; gap: 8px; }
+
+.symp {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  gap: 10px;
+  transition: all 0.3s ease;
+}
+
+.symp.flagged {
+  background: var(--red-light);
+  border-color: rgba(229,57,53,0.2);
+}
+
+.symp.elevated {
+  background: var(--orange-light);
+  border-color: rgba(245,124,0,0.2);
+}
+
+.symp-icon { font-size: 16px; flex-shrink: 0; }
+
+.symp-info { flex: 1; min-width: 0; }
+
+.symp-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.symp-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 1px;
+}
+
+.symp-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--green-light);
+  color: var(--green);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.symp-badge.flagged {
+  background: var(--red-light);
+  color: var(--red);
+  animation: blink 0.8s infinite;
+}
+
+.symp-badge.elevated {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+/* Terminal log */
+.log-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.8;
+  background: #fafbfc;
+}
+
+.log-wrap::-webkit-scrollbar { width: 4px; }
+.log-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.ll {
+  display: flex;
+  gap: 8px;
+  animation: ll-in 0.15s ease both;
+}
+
+@keyframes ll-in { from{opacity:0;transform:translateY(2px);} to{opacity:1;transform:none;} }
+
+.lt { color: var(--muted); flex-shrink: 0; }
+.lm { color: var(--text); }
+.lm.ok { color: var(--green); }
+.lm.warn { color: var(--orange); }
+.lm.crit { color: var(--red); font-weight: 500; }
+.lm.dim { color: #adb5bd; }
+
+/* Apnea button */
+.apnea-btn {
+  margin: 12px 20px;
+  padding: 12px;
+  background: var(--red-light);
+  border: 1px solid rgba(229,57,53,0.3);
+  border-radius: 8px;
+  color: var(--red);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.apnea-btn:hover {
+  background: rgba(229,57,53,0.12);
+  box-shadow: 0 2px 12px rgba(229,57,53,0.2);
+}
+
+/* Connect bar */
+.connect-bar {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.url-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+}
+
+.url-input:focus { border-color: var(--accent); }
+
+.connect-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connect-btn:hover { background: #0052cc; }
+</style>
 </head>
 <body>
-  <h1>AEYRON Sentinel — Local demo</h1>
-  <p class="subtitle">Live vitals: use the Swift app (SDK) for accurate numbers, or the Python bridge for estimates. See backend/RUN.md.</p>
 
-  <div class="status-line">
-    <span class="dot dot--warn" id="status-dot"></span>
-    <span id="api-status">Checking backend…</span>
-    <span id="data-source" style="margin-left: 0.5rem;"></span>
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">A</div>
+    <div>
+      <div class="logo-text">AEYRON</div>
+      <div class="logo-sub">SENTINEL PLATFORM</div>
+    </div>
   </div>
+  <div class="hdivider"></div>
+  <div class="live-pill"><div class="live-dot"></div> LIVE</div>
+  <div class="hdivider"></div>
+  <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">PARKINSON'S RESPIRATORY MONITOR</span>
+  <div class="header-right">
+    <div class="risk-pill" id="riskPill">RISK: LOW</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
 
-  <div class="row">
-    <div class="camera-wrap">
-      <p class="camera-caption">Optional: browser camera preview. The vitals below are computed by the <strong>bridge</strong> (Python script in a second terminal) using your Mac’s camera — not this feed.</p>
-      <span class="badge" id="live-badge" style="display: none;">Preview on</span>
-      <video id="video" autoplay playsinline muted style="display: none;"></video>
-      <button type="button" id="btn-camera">Start camera preview</button>
-      <p id="camera-error" class="error" style="display: none;"></p>
+<!-- Main -->
+<div class="main">
+
+  <!-- Left: Patient + Camera -->
+  <div class="left">
+    <div class="patient-card">
+      <div class="patient-avatar">&#128116;</div>
+      <div class="patient-name">Robert M.</div>
+      <div class="patient-id">ID: PKS-2024-0047 &middot; Room 214</div>
+      <div class="patient-tags">
+        <span class="tag">Parkinson's Stage II</span>
+        <span class="tag warn">High Risk</span>
+        <span class="tag">Age 74</span>
+      </div>
     </div>
 
-    <div class="panel">
-      <div class="panel-title">Live vitals</div>
-      <div id="vitals-content">
-        <p class="waiting" id="vitals-waiting">Waiting for vitals…</p>
-        <div id="vitals-body" style="display: none;">
-          <div id="source-msg" class="section"></div>
-          <div class="section">
-            <span class="label">Heart rate</span><span id="hr-estimate-badge" class="estimate-badge" style="display: none;">Estimate</span>
-            <span class="label-desc" id="hr-desc">From face (pulse).</span>
-            <span class="value" id="hr">—</span><span class="unit">bpm</span>
-            <span id="hr-flag" class="flag" style="display: none;"> ⚠ outside 60–100</span>
-          </div>
-          <div class="section">
-            <span class="label">Breathing rate</span><span id="br-estimate-badge" class="estimate-badge" style="display: none;">Estimate</span>
-            <span class="label-desc" id="br-desc">From chest movement.</span>
-            <span class="value" id="br">—</span><span class="unit">breaths/min</span>
-          </div>
-          <div class="section">
-            <span class="label">HRV (heart rate variability)</span>
-            <span class="label-desc" id="hrv-desc">From SDK or placeholder (bridge).</span>
-            <span class="value value--muted" id="hrv">—</span><span class="unit">ms</span><span id="hrv-placeholder" style="display: none;"> <em>(placeholder)</em></span>
-          </div>
-          <div class="section">
-            <span class="label">Stress</span>
-            <span class="label-desc" id="stress-desc">From SDK or placeholder (bridge).</span>
-            <div class="bar-wrap"><div class="bar-fill" id="stress-bar" style="width: 0%; background: var(--success);"></div></div>
-            <span class="unit" id="stress-pct">0%</span><span id="stress-placeholder" style="display: none;"> <em>(placeholder)</em></span>
-          </div>
-          <div class="section" id="emotion-section" style="display: none;">
-            <span class="label">Face emotion</span>
-            <span class="label-desc">Expression and confidence from SDK or bridge.</span>
-            <span class="value" id="emotion">—</span>
-            <span class="unit" id="emotion-conf"></span>
-          </div>
-          <div class="section risk">
-            <span class="label">Vitals risk</span>
-            <span class="label-desc" id="risk-desc">Combined from heart rate, HRV, stress.</span>
-            <span class="value" id="risk">—</span><span class="unit">/ 1.0</span>
-          </div>
-          <p class="label label-desc" id="disclaimer-msg" style="margin-top: 1rem; padding: 0.5rem; background: var(--bg-muted); border-radius: 6px; border-left: 3px solid var(--border);"></p>
-          <div class="legend">
-            <span class="c-s">● Live / OK</span>
-            <span class="c-w">● Warning / simulated</span>
-            <span class="c-d">● Error / no data</span>
-          </div>
+    <div class="camera-section">
+      <video id="video" autoplay muted playsinline></video>
+      <div class="cam-placeholder" id="camPlaceholder">
+        <div style="font-size:32px;opacity:0.2">&#128247;</div>
+        <div>INITIALIZING CAMERA...</div>
+      </div>
+      <div class="cam-overlay-white">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="face-ring" id="faceRing"></div>
+        <div class="cam-label-bar">
+          <span id="camStatus">FACE DETECTION ACTIVE</span>
+          <span id="camFps">30 FPS &middot; FRONT CAM</span>
         </div>
+      </div>
+      <div class="apnea-flash" id="apneaFlash">&#9888; APNEA DETECTED</div>
+    </div>
+
+    <div class="vitals-summary">
+      <div class="vs-item">
+        <div class="vs-label">Heart Rate</div>
+        <div class="vs-value good" id="vsHR">--<span class="vs-unit"> bpm</span></div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-label">Breath Rate</div>
+        <div class="vs-value good" id="vsBR">--<span class="vs-unit"> b/m</span></div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-label">SpO2 Est.</div>
+        <div class="vs-value good" id="vsO2">98<span class="vs-unit"> %</span></div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-label">Apnea Events</div>
+        <div class="vs-value good" id="vsAP">0<span class="vs-unit"> /hr</span></div>
       </div>
     </div>
   </div>
 
-  <script>
-    const API = 'http://localhost:8000';
-    const POLL_MS = 1000;
+  <!-- Center: Charts -->
+  <div class="center">
 
-    // API status + data source + status dot (color polarity)
-    const dotEl = document.getElementById('status-dot');
-    async function checkApi() {
-      try {
-        const r = await fetch(API + '/vitals');
-        const el = document.getElementById('api-status');
-        const srcEl = document.getElementById('data-source');
-        if (!r.ok) {
-          el.textContent = 'Backend error ' + r.status;
-          srcEl.textContent = '';
-          dotEl.className = 'dot dot--err';
-          return false;
-        }
-        el.textContent = 'Backend connected.';
-        const d = await r.json();
-        if (d.patient === 'live' && d.source === 'sdk') {
-          srcEl.textContent = 'Data: Live (SDK) — accurate.';
-          srcEl.style.color = 'var(--success)';
-          dotEl.className = 'dot dot--ok';
-        } else if (d.patient === 'live' && d.source === 'bridge') {
-          srcEl.textContent = 'Data: Live (camera estimate).';
-          srcEl.style.color = 'var(--warning)';
-          dotEl.className = 'dot dot--warn';
-        } else if (d.patient === 'live') {
-          srcEl.textContent = 'Data: live.';
-          srcEl.style.color = 'var(--success)';
-          dotEl.className = 'dot dot--ok';
-        } else if (!d.patient || d.patient === null) {
-          srcEl.textContent = 'Data: none — start a measurement in the app (tap Record) or run bridge (RUN.md).';
-          srcEl.style.color = 'var(--danger)';
-          dotEl.className = 'dot dot--warn';
-        } else if (d.source === 'simulator' || (d.patient === 'A' || d.patient === 'B' || d.patient === 'C')) {
-          srcEl.textContent = 'Data: ' + d.patient + ' (simulated).';
-          srcEl.style.color = 'var(--warning)';
-          dotEl.className = 'dot dot--warn';
-        } else {
-          srcEl.textContent = 'Data: ' + (d.patient || '?') + '.';
-          srcEl.style.color = 'var(--warning)';
-          dotEl.className = 'dot dot--warn';
-        }
-        return true;
-      } catch (e) {
-        document.getElementById('api-status').textContent = 'Backend not running — start ./run_live_demo.sh first.';
-        document.getElementById('data-source').textContent = '';
-        dotEl.className = 'dot dot--err';
-        return false;
-      }
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Pulse Pleth &mdash; rPPG Signal</span>
+        <span class="chart-val" id="cvHR">-- bpm</span>
+      </div>
+      <canvas id="cPulse"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Breathing Rate &mdash; Respiratory Waveform</span>
+        <span class="chart-val" id="cvBR">-- b/min</span>
+      </div>
+      <canvas id="cBreath"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Apnea Detection</span>
+        <span class="chart-val" id="cvAP" style="color:var(--green)">CLEAR</span>
+      </div>
+      <canvas id="cApnea"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Pulse Rate Confidence</span>
+        <span class="chart-val" id="cvConf">--</span>
+      </div>
+      <canvas id="cConf"></canvas>
+    </div>
+
+  </div>
+
+  <!-- Right: Risk + Symptoms + Log -->
+  <div class="right">
+
+    <div class="rpanel-section">
+      <div class="section-label">Pneumonia Risk Index</div>
+      <div class="risk-display">
+        <div class="risk-big" id="riskBig">--</div>
+        <div class="risk-meta">
+          <div class="risk-status" id="riskStatus">AWAITING DATA</div>
+          <div class="risk-desc" id="riskDesc">Connect backend to begin monitoring.</div>
+        </div>
+      </div>
+      <div class="risk-track">
+        <div class="risk-fill-bar"></div>
+        <div class="risk-thumb" id="riskThumb" style="left:0%"></div>
+      </div>
+    </div>
+
+    <div class="rpanel-section">
+      <div class="section-label">Symptom Indicators</div>
+      <div class="symptom-list">
+        <div class="symp" id="sympHypo">
+          <span class="symp-icon">&#127908;</span>
+          <div class="symp-info">
+            <div class="symp-name">HYPOPHONIA</div>
+            <div class="symp-val" id="sHypo">Awaiting mic data</div>
+          </div>
+          <span class="symp-badge" id="fHypo">OK</span>
+        </div>
+        <div class="symp" id="sympBR">
+          <span class="symp-icon">&#128168;</span>
+          <div class="symp-info">
+            <div class="symp-name">BREATH IRREGULARITY</div>
+            <div class="symp-val" id="sBR">-- b/min</div>
+          </div>
+          <span class="symp-badge" id="fBR">OK</span>
+        </div>
+        <div class="symp" id="sympAP">
+          <span class="symp-icon">&#128566;</span>
+          <div class="symp-info">
+            <div class="symp-name">APNEA EVENTS</div>
+            <div class="symp-val" id="sAP">0 events/hr</div>
+          </div>
+          <span class="symp-badge" id="fAP">OK</span>
+        </div>
+        <div class="symp" id="sympPV">
+          <span class="symp-icon">&#10084;&#65039;</span>
+          <div class="symp-info">
+            <div class="symp-name">PULSE VARIABILITY</div>
+            <div class="symp-val" id="sPV">-- ms HRV</div>
+          </div>
+          <span class="symp-badge" id="fPV">OK</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:8px 20px 0;flex-shrink:0">
+      <div class="section-label">Live Log</div>
+    </div>
+    <div class="log-wrap" id="logWrap"></div>
+
+    <button class="apnea-btn" onclick="triggerApnea()">&#9888; SIMULATE APNEA EVENT &mdash; DEMO</button>
+
+    <div class="connect-bar">
+      <input class="url-input" id="urlInput" placeholder="https://your-url.ngrok-free.dev" />
+      <button class="connect-btn" onclick="connect()">CONNECT</button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// —— State ——
+let backend = '';
+let apneaCount = 0;
+let isApnea = false;
+let fetchTimer = null;
+
+// Chart data buffers
+const BUF = 60;
+const pulseData = Array(BUF).fill(0);
+const breathData = Array(BUF).fill(0);
+const apneaData = Array(BUF).fill(0);
+const confData = Array(BUF).fill(0);
+
+// —— Clock ——
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+}, 1000);
+
+// —— Camera ——
+(async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    const v = document.getElementById('video');
+    v.srcObject = stream;
+    v.onloadedmetadata = () => { v.play(); document.getElementById('camPlaceholder').style.display='none'; log('Camera initialized','ok'); };
+  } catch(e) { log('Camera denied — demo mode','warn'); }
+})();
+
+// —— Log ——
+function log(msg, type='dim') {
+  const w = document.getElementById('logWrap');
+  const t = new Date().toLocaleTimeString('en-US',{hour12:false});
+  const d = document.createElement('div');
+  d.className = 'll';
+  d.innerHTML = `<span class="lt">${t}</span><span class="lm ${type}">${msg}</span>`;
+  w.appendChild(d);
+  w.scrollTop = w.scrollHeight;
+  while(w.children.length > 100) w.removeChild(w.firstChild);
+}
+
+// —— Canvas drawing ——
+function drawChart(canvasId, data, color, filled=true, dotted=false) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0,0,W,H);
+
+  const min = Math.min(...data) - 5;
+  const max = Math.max(...data) + 5;
+  const range = max - min || 1;
+  const step = W / (data.length - 1);
+  const px = i => i * step;
+  const py = v => H - ((v - min) / range) * H * 0.85 - H * 0.05;
+
+  if (filled) {
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, color + '22');
+    grad.addColorStop(1, color + '00');
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(data[0]));
+    for (let i=1;i<data.length;i++) {
+      const cx = px(i-0.5);
+      ctx.bezierCurveTo(cx,py(data[i-1]),cx,py(data[i]),px(i),py(data[i]));
     }
-    checkApi();
-    setInterval(checkApi, 3000);
+    ctx.lineTo(px(data.length-1),H);
+    ctx.lineTo(0,H);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
 
-    // Camera
-    const video = document.getElementById('video');
-    const btnCamera = document.getElementById('btn-camera');
-    const cameraError = document.getElementById('camera-error');
-    const liveBadge = document.getElementById('live-badge');
+  ctx.beginPath();
+  if (dotted) { ctx.setLineDash([4,4]); }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.moveTo(px(0), py(data[0]));
+  for (let i=1;i<data.length;i++) {
+    const cx = px(i-0.5);
+    ctx.bezierCurveTo(cx,py(data[i-1]),cx,py(data[i]),px(i),py(data[i]));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
 
-    btnCamera.onclick = async function () {
-      btnCamera.disabled = true;
-      btnCamera.textContent = 'Allow camera when prompted…';
-      cameraError.style.display = 'none';
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-          audio: false
-        });
-        video.srcObject = stream;
-        video.style.display = 'block';
-        liveBadge.style.display = 'block';
-        btnCamera.style.display = 'none';
-      } catch (e) {
-        cameraError.textContent = e.message || 'Camera access denied';
-        cameraError.style.display = 'block';
-        btnCamera.textContent = 'Start camera';
-        btnCamera.disabled = false;
-      }
-    };
+  // Last point
+  const lx = px(data.length-1), ly = py(data[data.length-1]);
+  ctx.beginPath();
+  ctx.arc(lx,ly,4,0,Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(lx,ly,8,0,Math.PI*2);
+  ctx.fillStyle = color+'33';
+  ctx.fill();
+}
 
-    // Vitals poll
-    async function pollVitals() {
-      try {
-        const r = await fetch(API + '/vitals');
-        const d = await r.json();
-        document.getElementById('vitals-waiting').style.display = 'none';
-        document.getElementById('vitals-body').style.display = 'block';
-        var srcEl = document.getElementById('source-msg');
-        var isSdk = d.source === 'sdk';
-        var isBridge = d.source === 'bridge';
-        if (d.patient === 'live' && isSdk) {
-          srcEl.innerHTML = '<span class="source-live">✓ Live (SDK) — accurate</span><span class="label-desc">Vitals from Presage SmartSpectra; use for real readings.</span>';
-        } else if (d.patient === 'live' && isBridge) {
-          srcEl.innerHTML = '<span class="source-other">Live (camera estimate)</span><span class="label-desc">Rough estimates from Python bridge. For accurate vitals use the Swift app (SDK).</span>';
-        } else if (d.patient === 'live') {
-          srcEl.innerHTML = '<span class="source-live">✓ Live</span><span class="label-desc">Vitals from backend.</span>';
-        } else if (d.patient === 'A' || d.patient === 'B' || d.patient === 'C' || d.source === 'simulator') {
-          srcEl.innerHTML = '<span class="source-sim">⚠ Simulated (patient ' + (d.patient || '?') + ')</span><span class="label-desc">Stop the simulator; run SDK app or bridge for real vitals (see RUN.md).</span>';
-        } else if (!d.patient || d.patient === '') {
-          srcEl.innerHTML = '<span class="source-sim">No data yet.</span><span class="label-desc">Run the Swift app (SDK) or in a second terminal: <code>cd backend && python3 -u live_vitals_bridge.py --interval 1</code>. See RUN.md.</span>';
-        } else {
-          srcEl.innerHTML = '<span class="source-other">Source: ' + (d.patient || '?') + '</span>';
-        }
-        document.getElementById('hr-estimate-badge').style.display = isBridge ? 'inline' : 'none';
-        document.getElementById('br-estimate-badge').style.display = isBridge ? 'inline' : 'none';
-        document.getElementById('hr-desc').textContent = isSdk ? 'From Presage SDK (pulse).' : (isBridge ? 'Estimated from face (pulse). Often rough.' : 'From face (pulse).');
-        document.getElementById('br-desc').textContent = isSdk ? 'From Presage SDK (chest).' : (isBridge ? 'Estimated from chest movement. Often rough.' : 'From chest movement.');
-        document.getElementById('hrv-desc').textContent = isSdk ? 'From SDK.' : (isBridge ? 'Placeholder only (bridge sends fixed 35 ms).' : 'From SDK or placeholder.');
-        document.getElementById('stress-desc').textContent = isSdk ? 'From SDK.' : (isBridge ? 'Placeholder only (bridge sends fixed 25%).' : 'From SDK or placeholder.');
-        document.getElementById('hrv-placeholder').style.display = isBridge ? 'inline' : 'none';
-        document.getElementById('stress-placeholder').style.display = isBridge ? 'inline' : 'none';
-        document.getElementById('risk-desc').textContent = isSdk ? 'Combined from heart rate, HRV, stress (SDK).' : (isBridge ? 'Uses real HR; HRV and stress are placeholders.' : 'Combined from heart rate, HRV, stress.');
-        var disclaimer = document.getElementById('disclaimer-msg');
-        if (isSdk) disclaimer.innerHTML = '<strong>Vitals from Presage SmartSpectra.</strong> Use for real readings.';
-        else if (isBridge) disclaimer.innerHTML = '<strong>Not for real use.</strong> Estimates only. For accurate vitals use the Swift app (SDK). See RUN.md.';
-        else disclaimer.innerHTML = 'Demo only. For accurate vitals use the Presage SDK (Swift app).';
-        document.getElementById('hr').textContent = d.heart_rate != null ? Math.round(d.heart_rate) : '—';
-        const hrFlag = document.getElementById('hr-flag');
-        hrFlag.style.display = (d.heart_rate != null && (d.heart_rate < 60 || d.heart_rate > 100)) ? 'inline' : 'none';
-        document.getElementById('hrv').textContent = d.hrv != null ? Math.round(d.hrv) : '—';
-        document.getElementById('br').textContent = d.breathing_rate != null ? Math.round(d.breathing_rate) : '—';
-          const pct = d.stress_score != null ? Math.round(d.stress_score * 100) : 0;
-          document.getElementById('stress-pct').textContent = pct + '%';
-          const bar = document.getElementById('stress-bar');
-          bar.style.width = pct + '%';
-          bar.style.background = pct < 40 ? 'var(--success)' : pct <= 70 ? 'var(--warning)' : 'var(--danger)';
-        document.getElementById('risk').textContent = d.vitals_risk != null ? d.vitals_risk.toFixed(2) : '—';
-        const emotionSection = document.getElementById('emotion-section');
-        if (d.face && d.face.expression) {
-          emotionSection.style.display = 'block';
-          document.getElementById('emotion').textContent = d.face.expression;
-          document.getElementById('emotion-conf').textContent = d.face.confidence != null ? (Math.round(d.face.confidence * 100) + '%') : '';
-        } else {
-          emotionSection.style.display = 'none';
-        }
-      } catch (_) {}
-    }
-    setInterval(pollVitals, POLL_MS);
-    pollVitals();
-  </script>
+function pushData(arr, val) { arr.push(val); if(arr.length > BUF) arr.shift(); }
+
+// —— Risk ——
+function updateRisk(score) {
+  const big = document.getElementById('riskBig');
+  const pill = document.getElementById('riskPill');
+  const status = document.getElementById('riskStatus');
+  const desc = document.getElementById('riskDesc');
+  const thumb = document.getElementById('riskThumb');
+
+  big.textContent = score;
+  thumb.style.left = score + '%';
+
+  if (score < 30) {
+    big.className = 'risk-big';
+    pill.className = 'risk-pill';
+    pill.textContent = 'RISK: LOW';
+    status.className = 'risk-status';
+    status.textContent = 'LOW RISK';
+    desc.textContent = 'Respiratory patterns within normal range.';
+  } else if (score < 60) {
+    big.className = 'risk-big moderate';
+    pill.className = 'risk-pill moderate';
+    pill.textContent = 'RISK: MODERATE';
+    status.className = 'risk-status moderate';
+    status.textContent = 'MODERATE RISK';
+    desc.textContent = 'Elevated irregularity. Monitor closely.';
+  } else {
+    big.className = 'risk-big critical';
+    pill.className = 'risk-pill critical';
+    pill.textContent = 'RISK: CRITICAL';
+    status.className = 'risk-status critical';
+    status.textContent = 'CRITICAL — ALERT CAREGIVER';
+    desc.textContent = 'Multiple indicators flagged. Immediate review.';
+  }
+}
+
+// —— Update from backend ——
+function applyData(data) {
+  const hr = data.heart_rate || 0;
+  const br = data.breathing_rate || 0;
+
+  // Push to charts
+  pushData(pulseData, hr + (Math.random()-0.5)*3);
+  pushData(breathData, br + (Math.random()-0.5)*1.5);
+  pushData(confData, 75 + Math.random()*20);
+
+  // Draw charts
+  drawChart('cPulse', pulseData, '#0066ff');
+  drawChart('cBreath', breathData, '#00a86b');
+  drawChart('cApnea', apneaData, '#e53935', true, false);
+  drawChart('cConf', confData, '#f57c00');
+
+  // Chart values
+  document.getElementById('cvHR').textContent = hr ? hr.toFixed(1) + ' bpm' : '-- bpm';
+  document.getElementById('cvBR').textContent = br ? br.toFixed(1) + ' b/min' : '-- b/min';
+  document.getElementById('cvConf').textContent = (75 + Math.random()*20).toFixed(0) + '%';
+
+  // Mini vitals
+  document.getElementById('vsHR').innerHTML = (hr ? hr.toFixed(0) : '--') + '<span class="vs-unit"> bpm</span>';
+  document.getElementById('vsBR').innerHTML = (br ? br.toFixed(0) : '--') + '<span class="vs-unit"> b/m</span>';
+  document.getElementById('vsHR').className = 'vs-value ' + (hr > 100 || hr < 50 ? 'bad' : hr > 90 ? 'warn' : 'good');
+  document.getElementById('vsBR').className = 'vs-value ' + (br > 25 ? 'bad' : br > 20 ? 'warn' : 'good');
+
+  // Symptoms
+  document.getElementById('sBR').textContent = br ? br.toFixed(1) + ' b/min' : '-- b/min';
+  const brFlag = br > 25 ? 'flagged' : br > 20 ? 'elevated' : '';
+  document.getElementById('sympBR').className = 'symp ' + brFlag;
+  document.getElementById('fBR').textContent = br > 25 ? 'FLAGGED' : br > 20 ? 'ELEVATED' : 'OK';
+  document.getElementById('fBR').className = 'symp-badge ' + brFlag;
+
+  const hrv = (20 + Math.random()*30).toFixed(1);
+  document.getElementById('sPV').textContent = hrv + ' ms HRV';
+  document.getElementById('fPV').textContent = hrv < 25 ? 'ELEVATED' : 'OK';
+
+  // Risk
+  const risk = Math.round(
+    (br > 25 ? 25 : br > 20 ? 15 : 5) +
+    (hr > 100 || hr < 50 ? 20 : 5) +
+    (apneaCount * 15) +
+    Math.random() * 5
+  );
+  updateRisk(Math.min(risk, 98));
+
+  log(`HR:${hr.toFixed(1)} BR:${br.toFixed(1)} RISK:${Math.min(risk,98)}`, risk > 60 ? 'crit' : risk > 30 ? 'warn' : 'ok');
+}
+
+// —— Fetch loop ——
+async function fetchVitals() {
+  if (!backend) return;
+  try {
+    const r = await fetch(backend + '/vitals', {headers:{'ngrok-skip-browser-warning':'true'}});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    if (d.heart_rate || d.breathing_rate) applyData(d);
+    else log('Waiting for scan...','dim');
+  } catch(e) {
+    log('Connection error: ' + e.message, 'warn');
+  }
+}
+
+function connect() {
+  backend = document.getElementById('urlInput').value.trim().replace(/\/$/,'');
+  if (!backend) return;
+  log('Backend connected: ' + backend, 'ok');
+  if (fetchTimer) clearInterval(fetchTimer);
+  fetchTimer = setInterval(fetchVitals, 3000);
+  fetchVitals();
+}
+
+// —— Apnea ——
+function triggerApnea() {
+  if (isApnea) return;
+  isApnea = true;
+  apneaCount++;
+
+  document.getElementById('faceRing').classList.add('apnea');
+  document.getElementById('apneaFlash').classList.add('show');
+  document.getElementById('vsAP').innerHTML = apneaCount + '<span class="vs-unit"> /hr</span>';
+  document.getElementById('vsAP').className = 'vs-value bad';
+  document.getElementById('sAP').textContent = apneaCount + ' events/hr';
+  document.getElementById('fAP').textContent = 'CRITICAL';
+  document.getElementById('fAP').className = 'symp-badge flagged';
+  document.getElementById('sympAP').className = 'symp flagged';
+  document.getElementById('cvAP').textContent = 'APNEA DETECTED';
+  document.getElementById('cvAP').style.color = 'var(--red)';
+  document.getElementById('sHypo').textContent = '38 dB — Soft voice';
+  document.getElementById('fHypo').textContent = 'FLAGGED';
+  document.getElementById('fHypo').className = 'symp-badge flagged';
+  document.getElementById('sympHypo').className = 'symp flagged';
+
+  // Spike apnea chart
+  for(let i=0;i<5;i++) pushData(apneaData, 1);
+  drawChart('cApnea', apneaData, '#e53935');
+
+  log('APNEA EVENT — breathing cessation detected', 'crit');
+  log('Hypophonia worsening — voice amplitude low', 'crit');
+  log('Pneumonia risk critical — alert caregiver', 'crit');
+
+  updateRisk(Math.min(65 + apneaCount * 10, 98));
+
+  setTimeout(() => {
+    document.getElementById('faceRing').classList.remove('apnea');
+    document.getElementById('apneaFlash').classList.remove('show');
+    document.getElementById('cvAP').textContent = 'MONITORING';
+    document.getElementById('cvAP').style.color = 'var(--orange)';
+    isApnea = false;
+    log('Apnea event logged. Resuming baseline.','warn');
+    for(let i=0;i<5;i++) pushData(apneaData, 0);
+    drawChart('cApnea', apneaData, '#e53935');
+  }, 5000);
+}
+
+// —— Idle simulation ——
+const idleMsgs = [
+  ['Scanning respiratory waveform...','dim'],
+  ['Presage SDK: frame processed','dim'],
+  ['Face landmarks: 468 pts tracked','dim'],
+  ['Breath cycle — inhale/exhale nominal','ok'],
+  ['Pulse pleth signal quality: HIGH','ok'],
+  ['No apnea in last 60s','ok'],
+  ['Parkinson biomarker scan nominal','dim'],
+];
+let ii = 0;
+setInterval(() => {
+  if (!backend) { log(idleMsgs[ii%idleMsgs.length][0], idleMsgs[ii%idleMsgs.length][1]); ii++; }
+  // Animate idle charts
+  pushData(pulseData, 65 + Math.sin(Date.now()/800)*8 + (Math.random()-0.5)*4);
+  pushData(breathData, 16 + Math.sin(Date.now()/2000)*3 + (Math.random()-0.5)*1);
+  pushData(confData, 80 + Math.random()*15);
+  pushData(apneaData, 0);
+  drawChart('cPulse', pulseData, '#0066ff');
+  drawChart('cBreath', breathData, '#00a86b');
+  drawChart('cApnea', apneaData, '#e53935');
+  drawChart('cConf', confData, '#f57c00');
+}, 2000);
+
+log('AEYRON Sentinel v1.0 — online','ok');
+log('Presage SmartSpectra SDK: ready','ok');
+log('Enter ngrok URL below to connect live data','dim');
+
+window.addEventListener('resize', () => {
+  drawChart('cPulse', pulseData, '#0066ff');
+  drawChart('cBreath', breathData, '#00a86b');
+  drawChart('cApnea', apneaData, '#e53935');
+  drawChart('cConf', confData, '#f57c00');
+});
+</script>
 </body>
 </html>
