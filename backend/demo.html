@@ -812,6 +812,7 @@ canvas {
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 <script>
 // —— State ——
 let backend = '';
@@ -831,15 +832,91 @@ setInterval(() => {
   document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
 }, 1000);
 
-// —— Camera ——
+// —— Camera + Face Expression Detection ——
+let faceApiReady = false;
+let videoEl = null;
+
 (async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
     const v = document.getElementById('video');
+    videoEl = v;
     v.srcObject = stream;
     v.onloadedmetadata = () => { v.play(); document.getElementById('camPlaceholder').style.display='none'; log('Camera initialized','ok'); };
   } catch(e) { log('Camera denied — demo mode','warn'); }
 })();
+
+// Load face-api.js models and start expression detection
+(async () => {
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+  try {
+    log('Loading face expression models...','dim');
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+    faceApiReady = true;
+    log('Face expression detection ready','ok');
+    setInterval(detectFaceExpression, 2000);
+  } catch(e) {
+    log('Face models failed: ' + e.message, 'warn');
+  }
+})();
+
+async function detectFaceExpression() {
+  if (!faceApiReady || !videoEl || videoEl.paused || videoEl.readyState < 2) return;
+  try {
+    const detection = await faceapi.detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({inputSize: 224, scoreThreshold: 0.3})).withFaceExpressions();
+    if (!detection) return;
+
+    const expr = detection.expressions;
+    // Find dominant expression and its confidence
+    let dominant = 'neutral';
+    let maxConf = 0;
+    for (const [name, conf] of Object.entries(expr)) {
+      if (conf > maxConf) { maxConf = conf; dominant = name; }
+    }
+
+    // Map face-api expressions to our categories
+    const exprMap = {
+      'neutral': 'neutral', 'happy': 'happy', 'sad': 'sad',
+      'angry': 'angry', 'fearful': 'anxious', 'disgusted': 'distressed',
+      'surprised': 'surprised'
+    };
+    const mappedExpr = exprMap[dominant] || dominant;
+
+    // Detect blinking (low eye openness proxy: if neutral+low confidence, likely eyes closed)
+    const isBlinking = maxConf < 0.4 && dominant === 'neutral';
+    // Detect talking (if happy or surprised with moderate confidence — mouth open proxy)
+    const isTalking = (dominant === 'surprised' || dominant === 'happy') && maxConf > 0.3 && maxConf < 0.7;
+
+    // POST to backend /vitals with face data
+    if (backend) {
+      fetch(backend + '/vitals', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          face: {
+            expression: mappedExpr,
+            confidence: parseFloat(maxConf.toFixed(3)),
+            blinking: isBlinking,
+            talking: isTalking,
+          },
+          source: 'webcam_faceapi'
+        })
+      }).catch(() => {});
+    }
+
+    // Update camera overlay
+    document.getElementById('camStatus').textContent = mappedExpr.toUpperCase() + ' (' + (maxConf * 100).toFixed(0) + '%)';
+
+    // Color the face ring based on expression
+    const ring = document.getElementById('faceRing');
+    if (dominant === 'neutral' && maxConf > 0.8) {
+      ring.style.borderColor = 'rgba(245,124,0,0.7)'; // flat affect — orange warning
+    } else {
+      ring.style.borderColor = 'rgba(0,102,255,0.5)'; // normal
+    }
+  } catch(e) { /* silent */ }
+}
 
 // —— Log ——
 function log(msg, type='dim') {
