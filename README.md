@@ -248,19 +248,25 @@ ngrok http 8000
 
 ## Sponsor Categories
 
-### Best Use of Vultr
+### Best Use of Presage
 
-Our per-patient autoencoder server runs on a **Vultr cloud instance**. Each patient enrolls a voice baseline → the autoencoder trains in seconds → inference returns anomaly scores in real time. This isn't batch processing — it's a live REST API handling enrollment, inference, and longitudinal history. Vultr's cloud compute is the reason we can offer personalized baselines instead of one-size-fits-all classification — every patient gets their own ML model, trained and served from Vultr.
+The **Presage SmartSpectra SDK** powers our entire cardiac/respiratory modality. Heart rate, HRV, breathing rate, stress — all extracted from the iPhone's front camera via rPPG. We built a custom SwiftUI bridge (AeyronBridge) that streams Presage vitals through ngrok into our multi-modal fusion engine. Without Presage, we'd need a $200 wearable to get these numbers. With it, we get clinical-grade vitals from a phone everyone already owns.
 
-**Vultr server:** FastAPI + PyTorch, always on, REST API for enrollment + inference + history.
+### Reactiv ClipKit Lab
+
+Reactiv builds native mobile app experiences — and their **App Clips** technology lets users interact instantly, no download required. We built a **Swift App Clip** using Reactiv's ClipKit Lab simulator that turns any pharmacy counter or clinic waiting room into a Parkinson's screening station. Scan a QR code → the clip launches → say "Ahhh" for 5 seconds → get an instant preliminary PD risk indicator. No app install, no account, no friction. The clip is a zero-barrier front door to the full Aeyron Sentinel system. **Contactless health screening triggered by a QR code, delivering clinical value in under 30 seconds** — a use case nobody has built for App Clips. From pharmacy counters to health fairs to rural clinics, instant PD screening for anyone with an iPhone.
 
 ### Vivirion Solutions Healthcare
 
 Vivirion Solutions is transforming how healthcare professionals learn, connect, and deliver care. Our project directly aligns with their mission: **Aeyron Sentinel puts clinical-grade PD screening into the hands of caregivers and patients** — no specialist equipment, no clinic visit. A personal support worker using Vi-Connect could run Aeyron on a home visit with just a phone and a laptop. The system's real-time, quantitative biomarkers replace subjective assessments, giving frontline care providers the data they need to flag early PD symptoms and escalate to specialists before it's too late. This is exactly the kind of tool that bridges the gap between healthcare education (Vi-Learn) and patient outcomes.
 
-### Best Use of Presage
+### SPUR Founder Track
 
-The **Presage SmartSpectra SDK** powers our entire cardiac/respiratory modality. Heart rate, HRV, breathing rate, stress — all extracted from the iPhone's front camera via rPPG. We built a custom SwiftUI bridge (AeyronBridge) that streams Presage vitals through ngrok into our multi-modal fusion engine. Without Presage, we'd need a $200 wearable to get these numbers. With it, we get clinical-grade vitals from a phone everyone already owns.
+SPUR Innovation Centre is Canada's premier venture studio — $500M+ in assets, 200+ startups, sovereign compute infrastructure in Waterloo. The SPUR Founder Track asks: **can this become a real Canadian startup?** Yes. 100,000+ Canadians live with Parkinson's. Early detection delays progression by years, but current diagnosis requires in-person neurologist visits — a bottleneck in Canada's strained healthcare system, especially in rural and remote areas. Aeyron Sentinel is telehealth-ready PD screening that runs on hardware every Canadian already owns. The path to market: screen patients remotely → triage for neurologist referral → partner with provincial health authorities → Health Canada SaMD certification. This isn't a hackathon demo — it's a deep-tech healthcare startup with a clear 30-day build sprint roadmap and a genuine Canadian market need.
+
+### Stan — Build in Public
+
+Stan is the all-in-one creator platform, and **Stanley** is their AI-powered LinkedIn content tool. We documented our entire 36-hour journey on LinkedIn using Stanley — the 2 AM autoencoder debugging sessions, the moment our SVM hit 88.3% accuracy, watching 4 modalities fuse into one score for the first time. Building Parkinson's detection isn't just code — it's a story worth telling publicly. Every post crafted with Stanley, tagged @Stanley, shared in real time. The highs, the bugs, the breakthroughs. Our code shipped, and so did our story.
 
 ---
 
