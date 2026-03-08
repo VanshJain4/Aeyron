@@ -656,13 +656,12 @@ canvas {
   <!-- Left: Patient + Camera -->
   <div class="left">
     <div class="patient-card">
-      <div class="patient-avatar">&#128116;</div>
-      <div class="patient-name">Robert M.</div>
-      <div class="patient-id">ID: PKS-2024-0047 &middot; Room 214</div>
+      <div class="patient-avatar" style="font-size:20px;font-family:var(--mono);font-weight:500;color:var(--accent);">LIVE</div>
+      <div class="patient-name">Active Session</div>
+      <div class="patient-id">Presage SmartSpectra SDK &middot; iPhone</div>
       <div class="patient-tags">
-        <span class="tag">Parkinson's Stage II</span>
-        <span class="tag warn">High Risk</span>
-        <span class="tag">Age 74</span>
+        <span class="tag">rPPG Analysis</span>
+        <span class="tag">Continuous</span>
       </div>
     </div>
 
@@ -762,39 +761,39 @@ canvas {
     </div>
 
     <div class="rpanel-section">
-      <div class="section-label">Symptom Indicators</div>
+      <div class="section-label">Live Vitals</div>
       <div class="symptom-list">
-        <div class="symp" id="sympHypo">
-          <span class="symp-icon">&#127908;</span>
+        <div class="symp" id="sympHR">
+          <span class="symp-icon">&#10084;&#65039;</span>
           <div class="symp-info">
-            <div class="symp-name">HYPOPHONIA</div>
-            <div class="symp-val" id="sHypo">Awaiting mic data</div>
+            <div class="symp-name">HEART RATE</div>
+            <div class="symp-val" id="sHR">-- bpm</div>
           </div>
-          <span class="symp-badge" id="fHypo">OK</span>
+          <span class="symp-badge" id="fHR">OK</span>
         </div>
         <div class="symp" id="sympBR">
           <span class="symp-icon">&#128168;</span>
           <div class="symp-info">
-            <div class="symp-name">BREATH IRREGULARITY</div>
+            <div class="symp-name">BREATHING RATE</div>
             <div class="symp-val" id="sBR">-- b/min</div>
           </div>
           <span class="symp-badge" id="fBR">OK</span>
         </div>
-        <div class="symp" id="sympAP">
-          <span class="symp-icon">&#128566;</span>
+        <div class="symp" id="sympFace">
+          <span class="symp-icon">&#128065;</span>
           <div class="symp-info">
-            <div class="symp-name">APNEA EVENTS</div>
-            <div class="symp-val" id="sAP">0 events/hr</div>
+            <div class="symp-name">FACE DETECTION</div>
+            <div class="symp-val" id="sFace">Scanning...</div>
           </div>
-          <span class="symp-badge" id="fAP">OK</span>
+          <span class="symp-badge" id="fFace">OK</span>
         </div>
-        <div class="symp" id="sympPV">
-          <span class="symp-icon">&#10084;&#65039;</span>
+        <div class="symp" id="sympSrc">
+          <span class="symp-icon">&#128225;</span>
           <div class="symp-info">
-            <div class="symp-name">PULSE VARIABILITY</div>
-            <div class="symp-val" id="sPV">-- ms HRV</div>
+            <div class="symp-name">DATA SOURCE</div>
+            <div class="symp-val" id="sSrc">Connecting...</div>
           </div>
-          <span class="symp-badge" id="fPV">OK</span>
+          <span class="symp-badge" id="fSrc">--</span>
         </div>
       </div>
     </div>
@@ -978,36 +977,40 @@ function applyData(data) {
   document.getElementById('vsHR').className = 'vs-value ' + (hr > 100 || hr < 50 ? 'bad' : hr > 90 ? 'warn' : 'good');
   document.getElementById('vsBR').className = 'vs-value ' + (br > 25 ? 'bad' : br > 20 ? 'warn' : 'good');
 
-  // Symptoms
+  // Right panel vitals
+  document.getElementById('sHR').textContent = hr ? hr.toFixed(1) + ' bpm' : '-- bpm';
+  const hrFlag = hr > 100 || hr < 50 ? 'flagged' : hr > 90 ? 'elevated' : '';
+  document.getElementById('sympHR').className = 'symp ' + hrFlag;
+  document.getElementById('fHR').textContent = hrFlag === 'flagged' ? 'ALERT' : hrFlag === 'elevated' ? 'HIGH' : 'OK';
+  document.getElementById('fHR').className = 'symp-badge ' + hrFlag;
+
   document.getElementById('sBR').textContent = br ? br.toFixed(1) + ' b/min' : '-- b/min';
   const brFlag = br > 25 ? 'flagged' : br > 20 ? 'elevated' : '';
   document.getElementById('sympBR').className = 'symp ' + brFlag;
-  document.getElementById('fBR').textContent = br > 25 ? 'FLAGGED' : br > 20 ? 'ELEVATED' : 'OK';
+  document.getElementById('fBR').textContent = br > 25 ? 'ALERT' : br > 20 ? 'HIGH' : 'OK';
   document.getElementById('fBR').className = 'symp-badge ' + brFlag;
-
-  // HRV from backend
-  const hrv = data.hrv || 0;
-  document.getElementById('sPV').textContent = hrv ? hrv.toFixed(1) + ' ms HRV' : '-- ms HRV';
-  const hrvFlag = hrv > 0 && hrv < 20 ? 'elevated' : '';
-  document.getElementById('fPV').textContent = hrvFlag ? 'ELEVATED' : 'OK';
-  document.getElementById('fPV').className = 'symp-badge ' + hrvFlag;
 
   // Face data
   const face = data.face || {};
   const blinking = face.blinking || false;
   const talking = face.talking || false;
-  document.getElementById('camStatus').textContent = blinking ? 'BLINK DETECTED' : talking ? 'SPEECH DETECTED' : 'FACE DETECTION ACTIVE';
+  const faceStatus = blinking ? 'Blink detected' : talking ? 'Speech detected' : 'Tracking';
+  document.getElementById('sFace').textContent = faceStatus;
+  document.getElementById('camStatus').textContent = faceStatus.toUpperCase();
+
+  // Source
+  const src = data.source || 'unknown';
+  document.getElementById('sSrc').textContent = src === 'sdk' ? 'Presage SDK' : src;
+  document.getElementById('fSrc').textContent = src === 'sdk' ? 'LIVE' : src.toUpperCase();
+  document.getElementById('fSrc').className = 'symp-badge ' + (src === 'sdk' ? 'ok' : '');
+  document.getElementById('camFps').textContent = src === 'sdk' ? 'PRESAGE SDK · LIVE' : src.toUpperCase();
 
   // Risk from backend
   const riskRaw = data.vitals_risk || 0;
   const risk = Math.round(riskRaw * 100);
   updateRisk(Math.min(risk, 98));
 
-  // Source indicator
-  const src = data.source || 'unknown';
-  document.getElementById('camFps').textContent = src === 'sdk' ? 'PRESAGE SDK · LIVE' : '30 FPS · FRONT CAM';
-
-  log(`HR:${hr.toFixed(1)} BR:${br.toFixed(1)} RISK:${Math.min(risk,98)} [${src}]`, risk > 60 ? 'crit' : risk > 30 ? 'warn' : 'ok');
+  log(`HR:${hr.toFixed(1)} BR:${br.toFixed(1)} RISK:${Math.min(risk,98)}`, risk > 60 ? 'crit' : risk > 30 ? 'warn' : 'ok');
 }
 
 // —— Fetch loop ——
