@@ -4,10 +4,13 @@ Mic stream → last 10 s → voice features + SVM + cough detection → live num
 Tracing: every tick appends a row to live_demo_trace.csv for drift detection.
 """
 import csv
+import json
 import traceback
+import threading
 from pathlib import Path
 from collections import deque
 from datetime import datetime, timezone
+from urllib.request import Request, urlopen
 
 import warnings
 import numpy as np
@@ -56,6 +59,28 @@ TRACE_HEADER = (
     "combined_pd", "combined_label",
 )
 _tick_num = 0
+
+# ── Bridge: fire-and-forget POST to local FastAPI backend ─────────────────
+_BRIDGE_BASE = "http://localhost:8000"
+
+
+def _bridge_post(endpoint: str, payload: dict) -> None:
+    """POST JSON to the local backend in a daemon thread (non-blocking)."""
+    def _do():
+        try:
+            data = json.dumps(payload).encode("utf-8")
+            req = Request(
+                f"{_BRIDGE_BASE}{endpoint}",
+                data=data,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            urlopen(req, timeout=2)
+        except Exception:
+            pass  # backend may be down — never crash the tick loop
+
+    t = threading.Thread(target=_do, daemon=True)
+    t.start()
 
 
 def _log_trace(data: dict) -> None:
@@ -206,6 +231,21 @@ def live_tick(running: bool) -> tuple[str, object, object, object]:
                 else "MODERATE_RISK" if combined_pd < 0.60
                 else "HIGH_RISK"
             )
+
+        # ── Bridge: POST voice + cough to unified backend ──
+        _bridge_post("/voice", {
+            "pd_probability": round(p_pd / 100.0, 4),
+            "svm_confidence": round(max(p_healthy, p_pd) / 100.0, 4),
+            "features": {k: round(v, 6) if isinstance(v, float) else v for k, v in (feats or {}).items()},
+            "source": "svm",
+        })
+        if cough_count > 0 and cough_pd_score is not None:
+            _bridge_post("/cough", {
+                "pd_score": round(cough_pd_score, 4),
+                "pd_label": cough_label,
+                "num_coughs": cough_count,
+                "features": {k: round(v, 6) if isinstance(v, float) else v for k, v in (cough_feats or {}).items()},
+            })
 
         # ── Save to history ──
         tick_data = {
