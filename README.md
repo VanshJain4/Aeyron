@@ -335,7 +335,7 @@ The **Presage SmartSpectra SDK** is the backbone of our cardiac/respiratory moda
 
 ## Team
 
-Built at Hack Canada 2025.
+Built at Hack Canada 2026.
 
 ---
 
