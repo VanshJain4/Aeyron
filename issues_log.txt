@@ -1,0 +1,13 @@
+# Issues log
+
+## Stuck at 72 bpm and 14 breaths/min (2025-03-08)
+
+- **Problem:** Dashboard showed heart rate 72 bpm and breaths 14 b/min and never updated.
+- **Root cause:** 72 and 14 are the default initial values in VitalsEngine. They only change when the app receives WebSocket messages from the bridge. Stuck values mean no radar data is reaching the app (WebSocket not connected or not receiving).
+- **Solution:** (1) Added ATS exception: `ReactivChallengeKit/Info.plist` with `NSAllowsLocalNetworking = true` so iOS allows plain `ws://` to the Mac on local network (without this, URLSession can block the WebSocket). (2) Added WebSocket diagnostics in `SensorWebSocketClient`: log connect attempt, failure reason, decode errors, and "engine is nil" so Xcode console shows why no data. (3) Ensure bridge is running, iPhone and Mac on same WiFi, firewall allows 8765; update `kBridgeURL` if Mac IP differs from 10.200.12.200.
+
+## Device WebSocket timeout -1001 (2025-03-08)
+
+- **Problem:** On real device, app connected to ws://10.200.12.200:8765 and got "The request timed out" (-1001). Values stayed at 72/14.
+- **Root cause:** iPhone could not reach the Mac at that IP (wrong IP, firewall, or different network). Default IP is hardcoded and may not match the Mac's current WiFi IP.
+- **Solution:** (1) Bridge host is now configurable via clip URL: add `?bridge=YOUR_MAC_IP` to the invocation URL (e.g. `https://aeyron.health/patient/PKS-0047?bridge=192.168.1.100`). Get Mac IP with `ipconfig getifaddr en0`. (2) `SensorWebSocketClient` has `bridgeHost: String?`; when set (from context.queryParameters["bridge"] in dashboard onAppear), it is used instead of the default. (3) Simulator still uses 127.0.0.1 by default; device uses 10.200.12.200 unless overridden by URL.
