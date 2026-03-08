@@ -590,29 +590,6 @@ canvas {
 .lm.crit { color: var(--red); font-weight: 500; }
 .lm.dim { color: #adb5bd; }
 
-/* Apnea button */
-.apnea-btn {
-  margin: 12px 20px;
-  padding: 12px;
-  background: var(--red-light);
-  border: 1px solid rgba(229,57,53,0.3);
-  border-radius: 8px;
-  color: var(--red);
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 500;
-  cursor: pointer;
-  text-align: center;
-  letter-spacing: 0.05em;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.apnea-btn:hover {
-  background: rgba(229,57,53,0.12);
-  box-shadow: 0 2px 12px rgba(229,57,53,0.2);
-}
-
 /* Connect bar */
 .connect-bar {
   padding: 10px 20px;
@@ -827,10 +804,8 @@ canvas {
     </div>
     <div class="log-wrap" id="logWrap"></div>
 
-    <button class="apnea-btn" onclick="triggerApnea()">&#9888; SIMULATE APNEA EVENT &mdash; DEMO</button>
-
     <div class="connect-bar">
-      <input class="url-input" id="urlInput" placeholder="https://your-url.ngrok-free.dev" />
+      <input class="url-input" id="urlInput" value="http://localhost:8000" placeholder="https://your-url.ngrok-free.dev" />
       <button class="connect-btn" onclick="connect()">CONNECT</button>
     </div>
 
@@ -1010,20 +985,29 @@ function applyData(data) {
   document.getElementById('fBR').textContent = br > 25 ? 'FLAGGED' : br > 20 ? 'ELEVATED' : 'OK';
   document.getElementById('fBR').className = 'symp-badge ' + brFlag;
 
-  const hrv = (20 + Math.random()*30).toFixed(1);
-  document.getElementById('sPV').textContent = hrv + ' ms HRV';
-  document.getElementById('fPV').textContent = hrv < 25 ? 'ELEVATED' : 'OK';
+  // HRV from backend
+  const hrv = data.hrv || 0;
+  document.getElementById('sPV').textContent = hrv ? hrv.toFixed(1) + ' ms HRV' : '-- ms HRV';
+  const hrvFlag = hrv > 0 && hrv < 20 ? 'elevated' : '';
+  document.getElementById('fPV').textContent = hrvFlag ? 'ELEVATED' : 'OK';
+  document.getElementById('fPV').className = 'symp-badge ' + hrvFlag;
 
-  // Risk
-  const risk = Math.round(
-    (br > 25 ? 25 : br > 20 ? 15 : 5) +
-    (hr > 100 || hr < 50 ? 20 : 5) +
-    (apneaCount * 15) +
-    Math.random() * 5
-  );
+  // Face data
+  const face = data.face || {};
+  const blinking = face.blinking || false;
+  const talking = face.talking || false;
+  document.getElementById('camStatus').textContent = blinking ? 'BLINK DETECTED' : talking ? 'SPEECH DETECTED' : 'FACE DETECTION ACTIVE';
+
+  // Risk from backend
+  const riskRaw = data.vitals_risk || 0;
+  const risk = Math.round(riskRaw * 100);
   updateRisk(Math.min(risk, 98));
 
-  log(`HR:${hr.toFixed(1)} BR:${br.toFixed(1)} RISK:${Math.min(risk,98)}`, risk > 60 ? 'crit' : risk > 30 ? 'warn' : 'ok');
+  // Source indicator
+  const src = data.source || 'unknown';
+  document.getElementById('camFps').textContent = src === 'sdk' ? 'PRESAGE SDK · LIVE' : '30 FPS · FRONT CAM';
+
+  log(`HR:${hr.toFixed(1)} BR:${br.toFixed(1)} RISK:${Math.min(risk,98)} [${src}]`, risk > 60 ? 'crit' : risk > 30 ? 'warn' : 'ok');
 }
 
 // —— Fetch loop ——
@@ -1045,80 +1029,17 @@ function connect() {
   if (!backend) return;
   log('Backend connected: ' + backend, 'ok');
   if (fetchTimer) clearInterval(fetchTimer);
-  fetchTimer = setInterval(fetchVitals, 3000);
+  fetchTimer = setInterval(fetchVitals, 1000);
   fetchVitals();
 }
 
-// —— Apnea ——
-function triggerApnea() {
-  if (isApnea) return;
-  isApnea = true;
-  apneaCount++;
-
-  document.getElementById('faceRing').classList.add('apnea');
-  document.getElementById('apneaFlash').classList.add('show');
-  document.getElementById('vsAP').innerHTML = apneaCount + '<span class="vs-unit"> /hr</span>';
-  document.getElementById('vsAP').className = 'vs-value bad';
-  document.getElementById('sAP').textContent = apneaCount + ' events/hr';
-  document.getElementById('fAP').textContent = 'CRITICAL';
-  document.getElementById('fAP').className = 'symp-badge flagged';
-  document.getElementById('sympAP').className = 'symp flagged';
-  document.getElementById('cvAP').textContent = 'APNEA DETECTED';
-  document.getElementById('cvAP').style.color = 'var(--red)';
-  document.getElementById('sHypo').textContent = '38 dB — Soft voice';
-  document.getElementById('fHypo').textContent = 'FLAGGED';
-  document.getElementById('fHypo').className = 'symp-badge flagged';
-  document.getElementById('sympHypo').className = 'symp flagged';
-
-  // Spike apnea chart
-  for(let i=0;i<5;i++) pushData(apneaData, 1);
-  drawChart('cApnea', apneaData, '#e53935');
-
-  log('APNEA EVENT — breathing cessation detected', 'crit');
-  log('Hypophonia worsening — voice amplitude low', 'crit');
-  log('Pneumonia risk critical — alert caregiver', 'crit');
-
-  updateRisk(Math.min(65 + apneaCount * 10, 98));
-
-  setTimeout(() => {
-    document.getElementById('faceRing').classList.remove('apnea');
-    document.getElementById('apneaFlash').classList.remove('show');
-    document.getElementById('cvAP').textContent = 'MONITORING';
-    document.getElementById('cvAP').style.color = 'var(--orange)';
-    isApnea = false;
-    log('Apnea event logged. Resuming baseline.','warn');
-    for(let i=0;i<5;i++) pushData(apneaData, 0);
-    drawChart('cApnea', apneaData, '#e53935');
-  }, 5000);
-}
-
-// —— Idle simulation ——
-const idleMsgs = [
-  ['Scanning respiratory waveform...','dim'],
-  ['Presage SDK: frame processed','dim'],
-  ['Face landmarks: 468 pts tracked','dim'],
-  ['Breath cycle — inhale/exhale nominal','ok'],
-  ['Pulse pleth signal quality: HIGH','ok'],
-  ['No apnea in last 60s','ok'],
-  ['Parkinson biomarker scan nominal','dim'],
-];
-let ii = 0;
-setInterval(() => {
-  if (!backend) { log(idleMsgs[ii%idleMsgs.length][0], idleMsgs[ii%idleMsgs.length][1]); ii++; }
-  // Animate idle charts
-  pushData(pulseData, 65 + Math.sin(Date.now()/800)*8 + (Math.random()-0.5)*4);
-  pushData(breathData, 16 + Math.sin(Date.now()/2000)*3 + (Math.random()-0.5)*1);
-  pushData(confData, 80 + Math.random()*15);
-  pushData(apneaData, 0);
-  drawChart('cPulse', pulseData, '#0066ff');
-  drawChart('cBreath', breathData, '#00a86b');
-  drawChart('cApnea', apneaData, '#e53935');
-  drawChart('cConf', confData, '#f57c00');
-}, 2000);
 
 log('AEYRON Sentinel v1.0 — online','ok');
 log('Presage SmartSpectra SDK: ready','ok');
-log('Enter ngrok URL below to connect live data','dim');
+log('Connecting to backend...','dim');
+
+// Auto-connect on load
+setTimeout(() => { connect(); }, 500);
 
 window.addEventListener('resize', () => {
   drawChart('cPulse', pulseData, '#0066ff');
