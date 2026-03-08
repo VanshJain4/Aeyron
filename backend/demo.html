@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AEYRON Sentinel — Clinical Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+
+:root {
+  --bg: #f4f6f8;
+  --white: #ffffff;
+  --panel: #ffffff;
+  --border: #e2e6ea;
+  --border2: #d0d5dd;
+  --text: #0d1117;
+  --muted: #6b7280;
+  --accent: #0066ff;
+  --accent-light: #e8f0ff;
+  --green: #00a86b;
+  --green-light: #e6f7f1;
+  --red: #e53935;
+  --red-light: #fdecea;
+  --orange: #f57c00;
+  --orange-light: #fff3e0;
+  --mono: 'DM Mono', monospace;
+  --serif: 'Instrument Serif', serif;
+  --sans: 'DM Sans', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  height: 100vh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 56px 1fr;
+}
+
+/* —— Header —— */
+.header {
+  background: var(--white);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-mark {
+  width: 32px; height: 32px;
+  background: var(--accent);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.logo-text {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  color: var(--text);
+}
+
+.logo-sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.hdivider {
+  width: 1px; height: 24px;
+  background: var(--border);
+}
+
+.live-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background: var(--green-light);
+  border-radius: 100px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 500;
+}
+
+.live-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: blink 1.2s ease-in-out infinite;
+}
+
+@keyframes blink { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.risk-pill {
+  padding: 5px 14px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  transition: all 0.4s ease;
+  background: var(--green-light);
+  color: var(--green);
+  border: 1px solid rgba(0,168,107,0.2);
+}
+
+.risk-pill.moderate {
+  background: var(--orange-light);
+  color: var(--orange);
+  border-color: rgba(245,124,0,0.2);
+}
+
+.risk-pill.critical {
+  background: var(--red-light);
+  color: var(--red);
+  border-color: rgba(229,57,53,0.2);
+  animation: pulse-pill 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes pulse-pill {
+  from { box-shadow: none; }
+  to { box-shadow: 0 0 12px rgba(229,57,53,0.3); }
+}
+
+.clock {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* —— Main Grid —— */
+.main {
+  display: grid;
+  grid-template-columns: 280px 1fr 320px;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* —— Left: Patient + Camera —— */
+.left {
+  background: var(--white);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Patient card */
+.patient-card {
+  padding: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.patient-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8f0ff, #c7d9ff);
+  border: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin-bottom: 12px;
+}
+
+.patient-name {
+  font-family: var(--serif);
+  font-size: 20px;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.patient-id {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.patient-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.tag.warn {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+/* Camera */
+.camera-section {
+  flex: 1;
+  position: relative;
+  background: #0d1117;
+  overflow: hidden;
+  min-height: 0;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  display: block;
+}
+
+.cam-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #3a4a5a;
+  font-family: var(--mono);
+  font-size: 11px;
+}
+
+.cam-overlay-white {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.corner { position: absolute; width: 20px; height: 20px; }
+.corner.tl { top:10px;left:10px;border-top:2px solid rgba(0,102,255,0.6);border-left:2px solid rgba(0,102,255,0.6); }
+.corner.tr { top:10px;right:10px;border-top:2px solid rgba(0,102,255,0.6);border-right:2px solid rgba(0,102,255,0.6); }
+.corner.bl { bottom:10px;left:10px;border-bottom:2px solid rgba(0,102,255,0.6);border-left:2px solid rgba(0,102,255,0.6); }
+.corner.br { bottom:10px;right:10px;border-bottom:2px solid rgba(0,102,255,0.6);border-right:2px solid rgba(0,102,255,0.6); }
+
+.face-ring {
+  position: absolute;
+  top:50%;left:50%;
+  transform:translate(-50%,-50%);
+  width:100px;height:120px;
+  border-radius:50%;
+  border:1.5px solid rgba(0,102,255,0.5);
+  animation: ring-pulse 2s ease-in-out infinite;
+}
+
+@keyframes ring-pulse {
+  0%,100%{border-color:rgba(0,102,255,0.3);}
+  50%{border-color:rgba(0,102,255,0.7);}
+}
+
+.face-ring.apnea {
+  border-color: rgba(229,57,53,0.8) !important;
+  animation: ring-alarm 0.3s ease-in-out infinite alternate !important;
+}
+
+@keyframes ring-alarm {
+  from{border-color:rgba(229,57,53,0.4);box-shadow:none;}
+  to{border-color:rgba(229,57,53,1);box-shadow:0 0 20px rgba(229,57,53,0.4);}
+}
+
+.apnea-flash {
+  position: absolute;
+  inset: 0;
+  background: rgba(229,57,53,0.15);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+  letter-spacing: 0.1em;
+  animation: flash 0.4s ease-in-out infinite alternate;
+}
+
+.apnea-flash.show { display: flex; }
+@keyframes flash { from{opacity:0.6;} to{opacity:1;} }
+
+.cam-label-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  background: rgba(0,0,0,0.5);
+  padding: 6px 10px;
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: rgba(255,255,255,0.6);
+  backdrop-filter: blur(4px);
+}
+
+/* Patient vitals summary */
+.vitals-summary {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.vs-item {}
+.vs-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.vs-value {
+  font-family: var(--mono);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--text);
+  transition: color 0.4s;
+}
+
+.vs-value.good { color: var(--green); }
+.vs-value.warn { color: var(--orange); }
+.vs-value.bad { color: var(--red); }
+.vs-unit { font-size: 11px; color: var(--muted); }
+
+/* —— Center: Charts —— */
+.center {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg);
+  padding: 16px;
+  gap: 12px;
+}
+
+.chart-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.chart-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chart-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+canvas {
+  width: 100% !important;
+  flex: 1;
+  min-height: 0;
+  display: block;
+}
+
+/* —— Right: Risk + Symptoms + Log —— */
+.right {
+  background: var(--white);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rpanel-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+
+/* Risk score */
+.risk-display {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.risk-big {
+  font-family: var(--mono);
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--green);
+  transition: color 0.5s ease;
+}
+
+.risk-big.moderate { color: var(--orange); }
+.risk-big.critical { color: var(--red); }
+
+.risk-meta { padding-bottom: 6px; }
+
+.risk-status {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--green);
+  margin-bottom: 4px;
+  transition: color 0.5s;
+}
+
+.risk-status.moderate { color: var(--orange); }
+.risk-status.critical { color: var(--red); }
+
+.risk-desc {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  max-width: 140px;
+}
+
+.risk-track {
+  height: 5px;
+  background: var(--bg);
+  border-radius: 100px;
+  overflow: visible;
+  position: relative;
+}
+
+.risk-fill-bar {
+  height: 100%;
+  border-radius: 100px;
+  background: linear-gradient(90deg, var(--green), var(--orange), var(--red));
+  width: 100%;
+}
+
+.risk-thumb {
+  position: absolute;
+  top: -5px;
+  width: 14px; height: 14px;
+  background: var(--white);
+  border-radius: 50%;
+  border: 2px solid var(--border2);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15);
+  transform: translateX(-50%);
+  transition: left 1s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* Symptoms */
+.symptom-list { display: flex; flex-direction: column; gap: 8px; }
+
+.symp {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  gap: 10px;
+  transition: all 0.3s ease;
+}
+
+.symp.flagged {
+  background: var(--red-light);
+  border-color: rgba(229,57,53,0.2);
+}
+
+.symp.elevated {
+  background: var(--orange-light);
+  border-color: rgba(245,124,0,0.2);
+}
+
+.symp-icon { font-size: 16px; flex-shrink: 0; }
+
+.symp-info { flex: 1; min-width: 0; }
+
+.symp-name {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.05em;
+}
+
+.symp-val {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 1px;
+}
+
+.symp-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--green-light);
+  color: var(--green);
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.symp-badge.flagged {
+  background: var(--red-light);
+  color: var(--red);
+  animation: blink 0.8s infinite;
+}
+
+.symp-badge.elevated {
+  background: var(--orange-light);
+  color: var(--orange);
+}
+
+/* Terminal log */
+.log-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.8;
+  background: #fafbfc;
+}
+
+.log-wrap::-webkit-scrollbar { width: 4px; }
+.log-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.ll {
+  display: flex;
+  gap: 8px;
+  animation: ll-in 0.15s ease both;
+}
+
+@keyframes ll-in { from{opacity:0;transform:translateY(2px);} to{opacity:1;transform:none;} }
+
+.lt { color: var(--muted); flex-shrink: 0; }
+.lm { color: var(--text); }
+.lm.ok { color: var(--green); }
+.lm.warn { color: var(--orange); }
+.lm.crit { color: var(--red); font-weight: 500; }
+.lm.dim { color: #adb5bd; }
+
+/* Connect bar */
+.connect-bar {
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.url-input {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text);
+  background: var(--bg);
+  outline: none;
+}
+
+.url-input:focus { border-color: var(--accent); }
+
+.connect-btn {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 14px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.connect-btn:hover { background: #0052cc; }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">A</div>
+    <div>
+      <div class="logo-text">AEYRON</div>
+      <div class="logo-sub">SENTINEL PLATFORM</div>
+    </div>
+  </div>
+  <div class="hdivider"></div>
+  <div class="live-pill"><div class="live-dot"></div> LIVE</div>
+  <div class="hdivider"></div>
+  <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">PARKINSON'S MULTI-MODAL MONITOR</span>
+  <div class="header-right">
+    <div class="risk-pill" id="riskPill">RISK: LOW</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Left: Patient + Camera -->
+  <div class="left">
+    <div class="patient-card">
+      <div class="patient-avatar" style="font-size:20px;font-family:var(--mono);font-weight:500;color:var(--accent);">LIVE</div>
+      <div class="patient-name">Active Session</div>
+      <div class="patient-id">Presage SmartSpectra SDK &middot; iPhone</div>
+      <div class="patient-tags">
+        <span class="tag">rPPG Analysis</span>
+        <span class="tag">Continuous</span>
+      </div>
+    </div>
+
+    <div class="camera-section">
+      <video id="video" autoplay muted playsinline></video>
+      <div class="cam-placeholder" id="camPlaceholder">
+        <div style="font-size:32px;opacity:0.2">&#128247;</div>
+        <div>INITIALIZING CAMERA...</div>
+      </div>
+      <div class="cam-overlay-white">
+        <div class="corner tl"></div>
+        <div class="corner tr"></div>
+        <div class="corner bl"></div>
+        <div class="corner br"></div>
+        <div class="face-ring" id="faceRing"></div>
+        <div class="cam-label-bar">
+          <span id="camStatus">FACE DETECTION ACTIVE</span>
+          <span id="camFps">30 FPS &middot; FRONT CAM</span>
+        </div>
+      </div>
+      <div class="apnea-flash" id="apneaFlash">&#9888; APNEA DETECTED</div>
+    </div>
+
+    <div class="vitals-summary">
+      <div class="vs-item">
+        <div class="vs-label">Heart Rate</div>
+        <div class="vs-value good" id="vsHR">--<span class="vs-unit"> bpm</span></div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-label">Breath Rate</div>
+        <div class="vs-value good" id="vsBR">--<span class="vs-unit"> b/m</span></div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-label">SpO2 Est.</div>
+        <div class="vs-value good" id="vsO2">98<span class="vs-unit"> %</span></div>
+      </div>
+      <div class="vs-item">
+        <div class="vs-label">Apnea Events</div>
+        <div class="vs-value good" id="vsAP">0<span class="vs-unit"> /hr</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Center: Charts -->
+  <div class="center">
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Pulse Pleth &mdash; rPPG Signal</span>
+        <span class="chart-val" id="cvHR">-- bpm</span>
+      </div>
+      <canvas id="cPulse"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Breathing Rate &mdash; Respiratory Waveform</span>
+        <span class="chart-val" id="cvBR">-- b/min</span>
+      </div>
+      <canvas id="cBreath"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Apnea Detection</span>
+        <span class="chart-val" id="cvAP" style="color:var(--green)">CLEAR</span>
+      </div>
+      <canvas id="cApnea"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <span class="chart-title">Modality Coverage</span>
+        <span class="chart-val" id="cvConf">--</span>
+      </div>
+      <canvas id="cConf"></canvas>
+    </div>
+
+  </div>
+
+  <!-- Right: Risk + Symptoms + Log -->
+  <div class="right">
+
+    <div class="rpanel-section">
+      <div class="section-label">Combined PD Risk Score</div>
+      <div class="risk-display">
+        <div class="risk-big" id="riskBig">--</div>
+        <div class="risk-meta">
+          <div class="risk-status" id="riskStatus">AWAITING DATA</div>
+          <div class="risk-desc" id="riskDesc">Connect backend to begin monitoring.</div>
+        </div>
+      </div>
+      <div class="risk-track">
+        <div class="risk-fill-bar"></div>
+        <div class="risk-thumb" id="riskThumb" style="left:0%"></div>
+      </div>
+      <div style="margin-top:8px;font-family:var(--mono);font-size:10px;color:var(--muted)" id="riskModalities">Active: --</div>
+    </div>
+
+    <div class="rpanel-section">
+      <div class="section-label">Modalities</div>
+      <div class="symptom-list">
+        <div class="symp" id="sympHeart">
+          <span class="symp-icon">&#10084;&#65039;</span>
+          <div class="symp-info">
+            <div class="symp-name">HEART / RESPIRATORY</div>
+            <div class="symp-val" id="sHeart">-- bpm / -- b/min</div>
+          </div>
+          <span class="symp-badge" id="fHeart">--</span>
+        </div>
+        <div class="symp" id="sympVoice">
+          <span class="symp-icon">&#127908;</span>
+          <div class="symp-info">
+            <div class="symp-name">VOICE / HYPOPHONIA</div>
+            <div class="symp-val" id="sVoice">Awaiting data</div>
+          </div>
+          <span class="symp-badge" id="fVoice">--</span>
+        </div>
+        <div class="symp" id="sympCough">
+          <span class="symp-icon">&#128168;</span>
+          <div class="symp-info">
+            <div class="symp-name">COUGH ANALYSIS</div>
+            <div class="symp-val" id="sCough">Awaiting data</div>
+          </div>
+          <span class="symp-badge" id="fCough">--</span>
+        </div>
+        <div class="symp" id="sympFace">
+          <span class="symp-icon">&#128065;</span>
+          <div class="symp-info">
+            <div class="symp-name">FACE / HYPOMIMIA</div>
+            <div class="symp-val" id="sFace">Awaiting data</div>
+          </div>
+          <span class="symp-badge" id="fFace">--</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:8px 20px 0;flex-shrink:0">
+      <div class="section-label">Live Log</div>
+    </div>
+    <div class="log-wrap" id="logWrap"></div>
+
+    <div class="connect-bar">
+      <input class="url-input" id="urlInput" value="http://localhost:8000" placeholder="https://your-url.ngrok-free.dev" />
+      <button class="connect-btn" onclick="connect()">CONNECT</button>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script>
+// —— State ——
+let backend = '';
+let apneaCount = 0;
+let isApnea = false;
+let fetchTimer = null;
+
+// Chart data buffers
+const BUF = 60;
+const pulseData = Array(BUF).fill(0);
+const breathData = Array(BUF).fill(0);
+const apneaData = Array(BUF).fill(0);
+const confData = Array(BUF).fill(0);
+
+// —— Clock ——
+setInterval(() => {
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US',{hour12:false});
+}, 1000);
+
+// —— Camera + Face Expression Detection ——
+let faceApiReady = false;
+let videoEl = null;
+
+(async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:'user'},audio:false});
+    const v = document.getElementById('video');
+    videoEl = v;
+    v.srcObject = stream;
+    v.onloadedmetadata = () => { v.play(); document.getElementById('camPlaceholder').style.display='none'; log('Camera initialized','ok'); };
+  } catch(e) { log('Camera denied — demo mode','warn'); }
+})();
+
+// Load face-api.js models and start expression detection
+(async () => {
+  const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
+  try {
+    log('Loading face expression models...','dim');
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+    faceApiReady = true;
+    log('Face expression detection ready','ok');
+    setInterval(detectFaceExpression, 2000);
+  } catch(e) {
+    log('Face models failed: ' + e.message, 'warn');
+  }
+})();
+
+async function detectFaceExpression() {
+  if (!faceApiReady || !videoEl || videoEl.paused || videoEl.readyState < 2) return;
+  try {
+    const detection = await faceapi.detectSingleFace(videoEl, new faceapi.TinyFaceDetectorOptions({inputSize: 224, scoreThreshold: 0.3})).withFaceExpressions();
+    if (!detection) return;
+
+    const expr = detection.expressions;
+    // Find dominant expression and its confidence
+    let dominant = 'neutral';
+    let maxConf = 0;
+    for (const [name, conf] of Object.entries(expr)) {
+      if (conf > maxConf) { maxConf = conf; dominant = name; }
+    }
+
+    // Map face-api expressions to our categories
+    const exprMap = {
+      'neutral': 'neutral', 'happy': 'happy', 'sad': 'sad',
+      'angry': 'angry', 'fearful': 'anxious', 'disgusted': 'distressed',
+      'surprised': 'surprised'
+    };
+    const mappedExpr = exprMap[dominant] || dominant;
+
+    // Detect blinking (low eye openness proxy: if neutral+low confidence, likely eyes closed)
+    const isBlinking = maxConf < 0.4 && dominant === 'neutral';
+    // Detect talking (if happy or surprised with moderate confidence — mouth open proxy)
+    const isTalking = (dominant === 'surprised' || dominant === 'happy') && maxConf > 0.3 && maxConf < 0.7;
+
+    // POST to backend /vitals with face data
+    if (backend) {
+      fetch(backend + '/vitals', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          face: {
+            expression: mappedExpr,
+            confidence: parseFloat(maxConf.toFixed(3)),
+            blinking: isBlinking,
+            talking: isTalking,
+          },
+          source: 'webcam_faceapi'
+        })
+      }).catch(() => {});
+    }
+
+    // Update camera overlay
+    document.getElementById('camStatus').textContent = mappedExpr.toUpperCase() + ' (' + (maxConf * 100).toFixed(0) + '%)';
+
+    // Color the face ring based on expression
+    const ring = document.getElementById('faceRing');
+    if (dominant === 'neutral' && maxConf > 0.8) {
+      ring.style.borderColor = 'rgba(245,124,0,0.7)'; // flat affect — orange warning
+    } else {
+      ring.style.borderColor = 'rgba(0,102,255,0.5)'; // normal
+    }
+  } catch(e) { /* silent */ }
+}
+
+// —— Log ——
+function log(msg, type='dim') {
+  const w = document.getElementById('logWrap');
+  const t = new Date().toLocaleTimeString('en-US',{hour12:false});
+  const d = document.createElement('div');
+  d.className = 'll';
+  d.innerHTML = `<span class="lt">${t}</span><span class="lm ${type}">${msg}</span>`;
+  w.appendChild(d);
+  w.scrollTop = w.scrollHeight;
+  while(w.children.length > 100) w.removeChild(w.firstChild);
+}
+
+// —— Canvas drawing ——
+function drawChart(canvasId, data, color, filled=true, dotted=false) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = rect.width * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+  const W = rect.width, H = rect.height;
+  ctx.clearRect(0,0,W,H);
+
+  const min = Math.min(...data) - 5;
+  const max = Math.max(...data) + 5;
+  const range = max - min || 1;
+  const step = W / (data.length - 1);
+  const px = i => i * step;
+  const py = v => H - ((v - min) / range) * H * 0.85 - H * 0.05;
+
+  if (filled) {
+    const grad = ctx.createLinearGradient(0,0,0,H);
+    grad.addColorStop(0, color + '22');
+    grad.addColorStop(1, color + '00');
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(data[0]));
+    for (let i=1;i<data.length;i++) {
+      const cx = px(i-0.5);
+      ctx.bezierCurveTo(cx,py(data[i-1]),cx,py(data[i]),px(i),py(data[i]));
+    }
+    ctx.lineTo(px(data.length-1),H);
+    ctx.lineTo(0,H);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  ctx.beginPath();
+  if (dotted) { ctx.setLineDash([4,4]); }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = 'round';
+  ctx.moveTo(px(0), py(data[0]));
+  for (let i=1;i<data.length;i++) {
+    const cx = px(i-0.5);
+    ctx.bezierCurveTo(cx,py(data[i-1]),cx,py(data[i]),px(i),py(data[i]));
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Last point
+  const lx = px(data.length-1), ly = py(data[data.length-1]);
+  ctx.beginPath();
+  ctx.arc(lx,ly,4,0,Math.PI*2);
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(lx,ly,8,0,Math.PI*2);
+  ctx.fillStyle = color+'33';
+  ctx.fill();
+}
+
+function pushData(arr, val) { arr.push(val); if(arr.length > BUF) arr.shift(); }
+
+// —— Risk ——
+function updateRisk(score) {
+  const big = document.getElementById('riskBig');
+  const pill = document.getElementById('riskPill');
+  const status = document.getElementById('riskStatus');
+  const desc = document.getElementById('riskDesc');
+  const thumb = document.getElementById('riskThumb');
+
+  big.textContent = score;
+  thumb.style.left = score + '%';
+
+  if (score < 30) {
+    big.className = 'risk-big';
+    pill.className = 'risk-pill';
+    pill.textContent = 'RISK: LOW';
+    status.className = 'risk-status';
+    status.textContent = 'LOW RISK';
+    desc.textContent = 'Respiratory patterns within normal range.';
+  } else if (score < 60) {
+    big.className = 'risk-big moderate';
+    pill.className = 'risk-pill moderate';
+    pill.textContent = 'RISK: MODERATE';
+    status.className = 'risk-status moderate';
+    status.textContent = 'MODERATE RISK';
+    desc.textContent = 'Elevated irregularity. Monitor closely.';
+  } else {
+    big.className = 'risk-big critical';
+    pill.className = 'risk-pill critical';
+    pill.textContent = 'RISK: CRITICAL';
+    status.className = 'risk-status critical';
+    status.textContent = 'CRITICAL — ALERT CAREGIVER';
+    desc.textContent = 'Multiple indicators flagged. Immediate review.';
+  }
+}
+
+// —— Update from /status endpoint ——
+function applyStatus(data) {
+  const heart = data.heart || {};
+  const voice = data.voice || {};
+  const cough = data.cough || {};
+  const face = data.face || {};
+  const active = data.active_modalities || [];
+  const combined = data.combined_pd_score;
+  const label = data.combined_label || 'NO_DATA';
+
+  const hr = heart.hr || 0;
+  const br = heart.br || 0;
+  const src = heart.source || 'unknown';
+
+  // Push to charts
+  pushData(pulseData, hr + (Math.random()-0.5)*3);
+  pushData(breathData, br + (Math.random()-0.5)*1.5);
+  pushData(confData, active.length > 0 ? 60 + active.length * 10 : 0);
+
+  // Apnea chart (if face is apnea or breathing extremely low)
+  pushData(apneaData, br > 0 && br < 8 ? 1 : 0);
+
+  // Draw charts
+  drawChart('cPulse', pulseData, '#0066ff');
+  drawChart('cBreath', breathData, '#00a86b');
+  drawChart('cApnea', apneaData, '#e53935', true, false);
+  drawChart('cConf', confData, '#f57c00');
+
+  // Chart values
+  document.getElementById('cvHR').textContent = hr ? hr.toFixed(1) + ' bpm' : '-- bpm';
+  document.getElementById('cvBR').textContent = br ? br.toFixed(1) + ' b/min' : '-- b/min';
+  document.getElementById('cvConf').textContent = active.length + '/4 modalities';
+  document.getElementById('cvAP').textContent = (br > 0 && br < 8) ? 'DETECTED' : 'CLEAR';
+  document.getElementById('cvAP').style.color = (br > 0 && br < 8) ? 'var(--red)' : 'var(--green)';
+
+  // Mini vitals (left panel)
+  document.getElementById('vsHR').innerHTML = (hr ? hr.toFixed(0) : '--') + '<span class="vs-unit"> bpm</span>';
+  document.getElementById('vsBR').innerHTML = (br ? br.toFixed(0) : '--') + '<span class="vs-unit"> b/m</span>';
+  document.getElementById('vsHR').className = 'vs-value ' + (hr > 100 || hr < 50 ? 'bad' : hr > 90 ? 'warn' : 'good');
+  document.getElementById('vsBR').className = 'vs-value ' + (br > 25 ? 'bad' : br > 20 ? 'warn' : 'good');
+
+  // Camera status
+  document.getElementById('camFps').textContent = src === 'sdk' ? 'PRESAGE SDK \u00b7 LIVE' : src.toUpperCase();
+  const blinking = face.blinking || false;
+  const talking = face.talking || false;
+  const faceTrack = blinking ? 'BLINK DETECTED' : talking ? 'SPEECH DETECTED' : 'TRACKING';
+  document.getElementById('camStatus').textContent = faceTrack;
+
+  // —— Right panel: Modalities ——
+
+  // Heart
+  const heartActive = active.includes('heart');
+  document.getElementById('sHeart').textContent = hr ? hr.toFixed(1) + ' bpm / ' + (br ? br.toFixed(1) : '--') + ' b/min' : 'No data';
+  const heartRisk = heart.vitals_risk || 0;
+  const heartFlag = heartRisk >= 0.6 ? 'flagged' : heartRisk >= 0.3 ? 'elevated' : '';
+  document.getElementById('sympHeart').className = 'symp ' + heartFlag;
+  document.getElementById('fHeart').textContent = heartActive ? (heartFlag === 'flagged' ? 'ALERT' : heartFlag === 'elevated' ? 'HIGH' : 'OK') : '--';
+  document.getElementById('fHeart').className = 'symp-badge ' + heartFlag;
+
+  // Voice
+  const voiceActive = active.includes('voice');
+  const voicePD = voice.pd_probability;
+  if (voicePD !== null && voicePD !== undefined) {
+    const voicePct = (voicePD * 100).toFixed(1);
+    document.getElementById('sVoice').textContent = 'PD prob: ' + voicePct + '% (conf: ' + ((voice.svm_confidence || 0) * 100).toFixed(0) + '%)';
+    const voiceFlag = voicePD >= 0.6 ? 'flagged' : voicePD >= 0.35 ? 'elevated' : '';
+    document.getElementById('sympVoice').className = 'symp ' + voiceFlag;
+    document.getElementById('fVoice').textContent = voiceFlag === 'flagged' ? 'ALERT' : voiceFlag === 'elevated' ? 'HIGH' : 'OK';
+    document.getElementById('fVoice').className = 'symp-badge ' + voiceFlag;
+  } else {
+    document.getElementById('sVoice').textContent = 'Awaiting data';
+    document.getElementById('sympVoice').className = 'symp';
+    document.getElementById('fVoice').textContent = '--';
+    document.getElementById('fVoice').className = 'symp-badge';
+  }
+
+  // Cough
+  const coughActive = active.includes('cough');
+  const coughScore = cough.pd_score;
+  if (coughScore !== null && coughScore !== undefined) {
+    document.getElementById('sCough').textContent = 'PD score: ' + (coughScore * 100).toFixed(1) + '% (' + (cough.num_coughs || 0) + ' coughs)';
+    const coughFlag = coughScore >= 0.6 ? 'flagged' : coughScore >= 0.35 ? 'elevated' : '';
+    document.getElementById('sympCough').className = 'symp ' + coughFlag;
+    document.getElementById('fCough').textContent = coughFlag === 'flagged' ? 'ALERT' : coughFlag === 'elevated' ? 'HIGH' : 'OK';
+    document.getElementById('fCough').className = 'symp-badge ' + coughFlag;
+  } else {
+    document.getElementById('sCough').textContent = 'Awaiting data';
+    document.getElementById('sympCough').className = 'symp';
+    document.getElementById('fCough').textContent = '--';
+    document.getElementById('fCough').className = 'symp-badge';
+  }
+
+  // Face / Hypomimia
+  const faceActive = active.includes('face');
+  if (face.variance !== null && face.variance !== undefined) {
+    const hypo = face.hypomimia_detected;
+    document.getElementById('sFace').textContent = hypo ? 'Hypomimia detected (var: ' + face.variance.toFixed(4) + ')' : 'Normal (var: ' + face.variance.toFixed(4) + ')';
+    const faceFlag = hypo ? 'flagged' : '';
+    document.getElementById('sympFace').className = 'symp ' + faceFlag;
+    document.getElementById('fFace').textContent = hypo ? 'ALERT' : 'OK';
+    document.getElementById('fFace').className = 'symp-badge ' + faceFlag;
+  } else {
+    document.getElementById('sFace').textContent = 'Awaiting data';
+    document.getElementById('sympFace').className = 'symp';
+    document.getElementById('fFace').textContent = '--';
+    document.getElementById('fFace').className = 'symp-badge';
+  }
+
+  // —— Combined PD risk score ——
+  const risk = combined !== null && combined !== undefined ? Math.round(combined * 100) : 0;
+  updateRisk(Math.min(risk, 98));
+
+  // Active modalities display
+  document.getElementById('riskModalities').textContent = active.length > 0
+    ? 'Active: ' + active.join(', ') + ' (' + active.length + '/4)'
+    : 'Active: none — waiting for data';
+
+  // Update risk description based on label
+  if (label === 'NO_DATA') {
+    document.getElementById('riskStatus').textContent = 'AWAITING DATA';
+    document.getElementById('riskDesc').textContent = 'No modalities reporting yet.';
+  }
+
+  // Log
+  const parts = [];
+  if (heartActive) parts.push('HR:' + hr.toFixed(0));
+  if (voiceActive) parts.push('Voice:' + (voicePD * 100).toFixed(0) + '%');
+  if (coughActive) parts.push('Cough:' + (coughScore * 100).toFixed(0) + '%');
+  if (faceActive) parts.push('Face:' + (face.hypomimia_detected ? 'HYPO' : 'OK'));
+  parts.push('PD:' + risk);
+  log(parts.join(' | '), risk > 60 ? 'crit' : risk > 30 ? 'warn' : 'ok');
+}
+
+// —— Fetch loop ——
+async function fetchStatus() {
+  if (!backend) return;
+  try {
+    const r = await fetch(backend + '/status', {headers:{'ngrok-skip-browser-warning':'true'}});
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const active = d.active_modalities || [];
+    if (active.length > 0) applyStatus(d);
+    else log('Waiting for modality data...','dim');
+  } catch(e) {
+    log('Connection error: ' + e.message, 'warn');
+  }
+}
+
+function connect() {
+  backend = document.getElementById('urlInput').value.trim().replace(/\/$/,'');
+  if (!backend) return;
+  log('Backend connected: ' + backend, 'ok');
+  if (fetchTimer) clearInterval(fetchTimer);
+  fetchTimer = setInterval(fetchStatus, 1000);
+  fetchStatus();
+}
+
+
+log('AEYRON Sentinel v1.0 — online','ok');
+log('Presage SmartSpectra SDK: ready','ok');
+log('Connecting to backend...','dim');
+
+// Auto-connect on load
+setTimeout(() => { connect(); }, 500);
+
+window.addEventListener('resize', () => {
+  drawChart('cPulse', pulseData, '#0066ff');
+  drawChart('cBreath', breathData, '#00a86b');
+  drawChart('cApnea', apneaData, '#e53935');
+  drawChart('cConf', confData, '#f57c00');
+});
+</script>
+</body>
+</html>

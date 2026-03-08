@@ -11,6 +11,7 @@ import UIKit
 final class ClipRouter {
 
     static let builtInExperiences: [any ClipExperience.Type] = [
+        AeyronHealthClip.self,
         VenueMerchExperience.self,
         TrailCheckInExperience.self,
     ]
@@ -68,6 +69,7 @@ final class ClipRouter {
         let defaults: [String: String] = [
             "name": "Hacker",
             "id": "42",
+            "patientId": "PKS-0047",
             "venueId": "rogers-centre",
             "showId": "tonight",
             "artistId": "jelly-roll",

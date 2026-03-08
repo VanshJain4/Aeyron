@@ -1,0 +1,26 @@
+[
+  {
+    "timestamp": "2026-03-07T06:39:13.877121",
+    "severity": 10.0,
+    "confidence": 1.0,
+    "pd_score": 0.2144,
+    "pd_label": "LOW_RISK",
+    "trend": "stable"
+  },
+  {
+    "timestamp": "2026-03-07T06:39:13.894170",
+    "severity": 47.5,
+    "confidence": 1.0,
+    "pd_score": 0.3695,
+    "pd_label": "MODERATE_RISK",
+    "trend": "declining"
+  },
+  {
+    "timestamp": "2026-03-07T06:39:13.909586",
+    "severity": 78.0,
+    "confidence": 0.85,
+    "pd_score": 0.7115,
+    "pd_label": "HIGH_RISK",
+    "trend": "declining"
+  }
+]

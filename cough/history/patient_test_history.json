@@ -1,0 +1,10 @@
+[
+  {
+    "timestamp": "2026-03-07T07:21:58.870953",
+    "severity": 50.0,
+    "confidence": 0.8,
+    "pd_score": 0.6662,
+    "pd_label": "HIGH_RISK",
+    "trend": "stable"
+  }
+]
