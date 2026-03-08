@@ -1,7 +1,7 @@
 //  AeyronHealthClip.swift
 //  ReactivChallengeKit
 //
-//  AEYRON Health — Caregiver Respiratory Monitor Clip
+//  AEYRON Health Caregiver Respiratory Monitor Clip
 //  QR scan → instant vitals dashboard for Parkinson's patients
 //
 //  Copyright © 2025 AEYRON Health Technologies Inc. All rights reserved.
@@ -80,6 +80,8 @@ final class VitalsEngine: NSObject {
     var apneaEventsPerHour: Double = 0
     var hrv: Double                = 34.9
     var hypophoniaDB: Double       = -25
+    /// Distance (m) from radar; set by SensorWebSocketClient.
+    var distance: Double           = 0
     var pneumoniaRiskIndex: Double = 0
     var isCritical: Bool           = false
     var isRunning: Bool            = false
@@ -228,41 +230,46 @@ struct AeyronDashboardView: View {
     @State private var wsClient           = SensorWebSocketClient()
     @State private var caregiverSent      = false
     @State private var alarmActive        = false
-    @State private var showCaregiverToast = false
-    @State private var showAlarmToast     = false
+    @State private var showCaregiverToast  = false
+    @State private var showAlarmToast      = false
+    @State private var isPulsing          = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var isAlert: Bool {
+        engine.distance > 1.5 || engine.isCritical || alarmActive
+    }
+    private var accentColor: Color { isAlert ? .red : .teal }
+    /// Central breath wave circle: green initially, red when critical alarm is triggered.
+    private var breathWaveCircleColor: Color { alarmActive ? .red : .green }
 
     var body: some View {
         ZStack {
-            Color(red: 0.05, green: 0.05, blue: 0.08).ignoresSafeArea()
-
-            if engine.isCritical || alarmActive {
-                Color.red.opacity(0.07).ignoresSafeArea()
-            }
-
+            (colorScheme == .dark ? Color.black : Color(white: 0.98)).ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
-                    headerBar
+                VStack(spacing: 32) {
                     if engine.permissionDenied {
                         permissionView
                     } else {
-                        metricsGrid
-                        riskCard
-                        graphsSection
+                        medicalGreeting
+                        breathWaveSection
+                        symptomCardsSection
+                        telemetryHeartRateSection
+                        telemetryBreathRateSection
                         actionRow
+                        surveillanceSection
+                        oneMillionSection
+                        founderStorySection
+                        respiratoryFidelitySection
+                        criticalWindowSection
+                        footerButton
                     }
                 }
-                .padding(.horizontal, 16)
                 .padding(.bottom, 40)
             }
-
             VStack {
                 Spacer()
-                if showCaregiverToast {
-                    toastBanner(text: "✅ Caregiver has been notified", color: .green)
-                }
-                if showAlarmToast {
-                    toastBanner(text: "🚨 Critical alarm triggered", color: .red)
-                }
+                if showCaregiverToast { toastBanner(text: "✅ Caregiver has been notified", color: .green) }
+                if showAlarmToast { toastBanner(text: "🚨 Critical alarm triggered", color: .red) }
             }
             .animation(.spring(), value: showCaregiverToast)
             .animation(.spring(), value: showAlarmToast)
@@ -273,6 +280,7 @@ struct AeyronDashboardView: View {
             wsClient.engine = engine
             if let host = bridgeHost, !host.isEmpty { wsClient.bridgeHost = host }
             wsClient.connect()
+            withAnimation(.easeInOut(duration: 60.0 / max(engine.breathsPerMinute, 1)).repeatForever(autoreverses: true)) { isPulsing = true }
         }
         .onDisappear {
             engine.stop()
@@ -280,137 +288,186 @@ struct AeyronDashboardView: View {
         }
     }
 
-    var headerBar: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("AEYRON HEALTH")
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.cyan.opacity(0.6))
-                    .kerning(2)
-                HStack(spacing: 6) {
-                    Text("Patient \(patientId)")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(.white)
-                    if engine.isRunning {
-                        Circle().fill(.green).frame(width: 7, height: 7)
-                    }
-                }
-                Text("via AEYRON · \(Date(), format: .dateTime.hour().minute().second())")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.3))
+    private var medicalGreeting: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(Color.red)
+                .frame(width: 10, height: 10)
+                .opacity(isPulsing ? 1 : 0.3)
+                .animation(.easeInOut(duration: 1).repeatForever(), value: isPulsing)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("CLINICAL ASSESSMENT ACTIVE")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundColor(colorScheme == .dark ? .white : .primary)
+                Text("Patient \(patientId) · \(engine.isRunning ? "Live" : "Connecting…")")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
                 if let err = wsClient.connectionError {
-                    Text(err)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.orange)
+                    Text(err).font(.system(size: 9, design: .monospaced)).foregroundColor(.orange)
                 }
             }
             Spacer()
-            statusPill
         }
-        .padding(.top, 12)
+        .padding(.horizontal, 24)
+        .padding(.top, 40)
     }
 
-    var statusPill: some View {
-        let crit = engine.isCritical || alarmActive
-        return Text(crit ? "⚠ CRITICAL" : "● STABLE")
-            .font(.system(size: 11, weight: .heavy, design: .monospaced))
-            .foregroundStyle(crit ? .black : .green)
-            .padding(.horizontal, 12).padding(.vertical, 6)
-            .background(crit ? Color.red : Color.green.opacity(0.15))
-            .clipShape(Capsule())
+    private var breathWaveSection: some View {
+        let circleColor = breathWaveCircleColor
+        return ZStack {
+            Circle()
+                .stroke(circleColor.opacity(colorScheme == .dark ? 0.2 : 0.3), lineWidth: 2)
+                .frame(width: 260, height: 260)
+            Circle()
+                .fill(circleColor.opacity(0.15))
+                .frame(width: 200, height: 200)
+                .scaleEffect(isPulsing ? 1.2 : 0.9)
+                .blur(radius: isPulsing ? 30 : 15)
+            Circle()
+                .fill(circleColor)
+                .frame(width: 100, height: 100)
+                .shadow(color: circleColor.opacity(0.6), radius: 30)
+                .scaleEffect(isPulsing ? 1.1 : 0.95)
+                .overlay(Image(systemName: "wind").font(.system(size: 32, weight: .bold)).foregroundColor(.black))
+        }
+        .frame(height: 320)
     }
 
-    var metricsGrid: some View {
-        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-            AeyronMetricCard(
-                emoji: "🎙", label: "HYPOPHONIA",
-                value: engine.isRunning ? String(format: "%.1f dBFS", engine.hypophoniaDB) : "Awaiting mic data",
-                status: engine.hypophoniaDB < -40 ? .warn : .ok,
-                isCritical: engine.hypophoniaDB <= VitalsEngine.criticalHypo
-            )
-            AeyronMetricCard(
-                emoji: "💨", label: "BREATH IRREGULARITY",
-                value: String(format: "%.1f b/min", engine.breathsPerMinute),
-                status: engine.breathsPerMinute > 20 ? .warn : .ok,
-                isCritical: engine.breathsPerMinute >= VitalsEngine.criticalBPM
-            )
-            AeyronMetricCard(
-                emoji: "😶", label: "APNEA EVENTS",
-                value: String(format: "%.1f events/hr", engine.apneaEventsPerHour),
-                status: engine.apneaEventsPerHour > 5 ? .warn : .ok,
-                isCritical: engine.apneaEventsPerHour >= VitalsEngine.criticalApnea
-            )
-            AeyronMetricCard(
-                emoji: "❤️", label: "PULSE VARIABILITY",
-                value: String(format: "%.1f ms HRV", engine.hrv),
-                status: engine.hrv < 20 ? .warn : .ok,
-                isCritical: engine.hrv < 15
-            )
+    private var symptomCardsSection: some View {
+        VStack(spacing: 16) {
+            AeyronSymptomCard(number: 1, title: "Hypophonia", value: engine.isRunning ? String(format: "%.0f dB", engine.hypophoniaDB) : "...", isAlert: false)
+            AeyronSymptomCard(number: 2, title: "Heart Rate", value: "\(Int(engine.heartRate)) BPM", isAlert: false)
+            AeyronSymptomCard(number: 3, title: "Breath Rate", value: "\(Int(engine.breathsPerMinute)) RPM", isAlert: false)
+            AeyronSymptomCard(number: 4, title: "Motion distance", value: String(format: "%.1f CM", engine.distance), isAlert: engine.distance > 1.5)
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var telemetryHeartRateSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("TELEMETRY: HEART RATE")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 24)
+            AeyronMiniGraph(label: "HEART RATE", data: engine.hrHistory, color: accentColor, yMin: 40, yMax: 160, current: String(format: "%.0f bpm", engine.heartRate))
+                .padding(.horizontal, 24)
         }
     }
 
-    var riskCard: some View {
-        let pri   = engine.pneumoniaRiskIndex
-        let color = priColor(pri)
-        return VStack(spacing: 10) {
+    private var telemetryBreathRateSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("TELEMETRY: BREATH RATE")
+                .font(.system(size: 14, weight: .bold, design: .monospaced))
+                .foregroundColor(.secondary)
+                .padding(.horizontal, 24)
+            AeyronMiniGraph(label: "BREATH RATE", data: engine.bpmHistory, color: accentColor, yMin: 0, yMax: 40, current: String(format: "%.1f b/min", engine.breathsPerMinute))
+                .padding(.horizontal, 24)
+        }
+    }
+
+    private var surveillanceSection: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 48)
+                .fill(colorScheme == .dark ? Color(white: 0.05) : Color.white)
+                .frame(height: 360)
+                .overlay(RoundedRectangle(cornerRadius: 48).stroke(colorScheme == .dark ? Color.white.opacity(0.05) : Color.black.opacity(0.05), lineWidth: 1))
+                .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.1), radius: 20, x: 0, y: 10)
+            Circle()
+                .trim(from: 0, to: 0.2)
+                .stroke(AngularGradient(gradient: Gradient(colors: [accentColor, .clear]), center: .center), style: StrokeStyle(lineWidth: 120, lineCap: .round))
+                .frame(width: 240, height: 240)
+                .rotationEffect(.degrees(isPulsing ? 360 : 0))
+                .animation(.linear(duration: 4).repeatForever(autoreverses: false), value: isPulsing)
+                .opacity(0.2)
+            VStack(spacing: 20) {
+                Image(systemName: "antenna.radiowaves.left.and.right").font(.system(size: 50)).foregroundColor(accentColor)
+                Text("Ambient Surveillance").font(.system(size: 24, weight: .bold)).foregroundColor(colorScheme == .dark ? .white : .primary)
+                Text("Our radar technology maps micro-movements in the room, detecting tremors and respiratory patterns through walls and furniture.")
+                    .font(.system(size: 16)).foregroundColor(.secondary).multilineTextAlignment(.center).padding(.horizontal, 48)
+            }
+        }
+        .padding(.horizontal, 24)
+    }
+
+    private var oneMillionSection: some View {
+        VStack(spacing: 12) {
+            Text("1,000,000+").font(.system(size: 44, weight: .black, design: .rounded)).foregroundColor(.red).tracking(-2)
+            Text("LIVES IMPACTED BY PARKINSON'S").font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(.secondary).tracking(3)
+            Text("Parkinson's is the fastest growing neurological condition in the world. Early detection isn't just a goal, it's a necessity.")
+                .font(.system(size: 18)).foregroundColor(.secondary).multilineTextAlignment(.center).padding(.horizontal, 40).padding(.top, 16)
+        }
+        .padding(.vertical, 60)
+    }
+
+    private var founderStorySection: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(spacing: 12) {
+                Image(systemName: "heart.fill").font(.title2).foregroundColor(.teal)
+                Text("The Founder's Journey").font(.title3).fontWeight(.bold)
+            }
+            Text("Aeyron Health was born from a personal mission. Our founder watched a loved one struggle with Parkinson's, realizing that the most critical data was being lost in the gaps between doctor visits.")
+                .font(.system(size: 17)).foregroundColor(.secondary).lineSpacing(4)
+            Text("\"No one was watching when it mattered most. We built Aeyron to be that silent guardian, turning every room into a clinical-grade monitoring suite.\"")
+                .font(.system(size: 17)).italic().foregroundColor(.secondary).lineSpacing(4)
+        }
+        .padding(40)
+        .background(colorScheme == .dark ? Color(white: 0.05) : Color.white)
+        .cornerRadius(40)
+        .shadow(color: colorScheme == .dark ? .clear : .black.opacity(0.05), radius: 15, x: 0, y: 8)
+        .padding(.horizontal, 24)
+    }
+
+    private var respiratoryFidelitySection: some View {
+        VStack(alignment: .leading, spacing: 24) {
             HStack {
-                Text("PNEUMONIA RISK INDEX")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.5)).kerning(1.5)
+                Text("Respiratory Fidelity").font(.system(size: 18, weight: .bold))
                 Spacer()
-                Text(priLabel(pri))
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(color)
+                Text("LIVE STREAM").font(.system(size: 12, weight: .bold)).foregroundColor(accentColor)
+                    .padding(.horizontal, 12).padding(.vertical, 6).background(accentColor.opacity(0.1)).cornerRadius(10)
             }
-            HStack(alignment: .lastTextBaseline, spacing: 4) {
-                Text(String(format: "%.0f", pri))
-                    .font(.system(size: 52, weight: .black, design: .rounded))
-                    .foregroundStyle(color)
-                Text("/ 100")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.3))
-                Spacer()
-            }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4).fill(.white.opacity(0.08)).frame(height: 8)
-                    RoundedRectangle(cornerRadius: 4).fill(color)
-                        .frame(width: geo.size.width * CGFloat(pri / 100), height: 8)
-                        .animation(.easeInOut(duration: 0.5), value: pri)
+            HStack(spacing: 16) {
+                VStack(spacing: 12) {
+                    Image(systemName: "lungs.fill").font(.system(size: 36)).foregroundColor(accentColor)
+                    Text("LUNG CAPACITY").font(.system(size: 10, weight: .bold)).foregroundColor(.secondary)
                 }
-            }
-            .frame(height: 8)
-            if engine.isCritical || alarmActive {
-                HStack(spacing: 6) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red).font(.system(size: 12))
-                    Text("CRITICAL THRESHOLD EXCEEDED — IMMEDIATE ATTENTION REQUIRED")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.red)
+                .frame(maxWidth: .infinity).frame(height: 140)
+                .background(colorScheme == .dark ? Color(white: 0.05) : Color.white).cornerRadius(28)
+                VStack(spacing: 12) {
+                    Image(systemName: "waveform.path").font(.system(size: 36)).foregroundColor(colorScheme == .dark ? .white : .primary)
+                    Text("TREMOR INDEX").font(.system(size: 10, weight: .bold)).foregroundColor(.secondary)
                 }
-                .padding(.top, 2)
+                .frame(maxWidth: .infinity).frame(height: 140)
+                .background(colorScheme == .dark ? Color(white: 0.05) : Color.white).cornerRadius(28)
             }
         }
-        .padding(16)
-        .background(
-            RoundedRectangle(cornerRadius: 14).fill(Color(white: 0.07))
-                .overlay(RoundedRectangle(cornerRadius: 14)
-                    .stroke(engine.isCritical || alarmActive ? Color.red.opacity(0.5) : Color.white.opacity(0.06), lineWidth: 1))
-        )
+        .padding(.horizontal, 24)
     }
 
-    var graphsSection: some View {
-        VStack(spacing: 10) {
-            AeyronMiniGraph(label: "❤️ HEART RATE", data: engine.hrHistory,
-                            color: .red, yMin: 40, yMax: 160,
-                            current: String(format: "%.0f bpm", engine.heartRate))
-            AeyronMiniGraph(label: "💨 BREATHS / MIN", data: engine.bpmHistory,
-                            color: .cyan, yMin: 0, yMax: 40,
-                            current: String(format: "%.1f b/min", engine.breathsPerMinute))
-            AeyronMiniGraph(label: "😶 APNEA EVENTS / HR", data: engine.apneaHistory,
-                            color: .orange, yMin: 0, yMax: 30,
-                            current: String(format: "%.1f /hr", engine.apneaEventsPerHour))
+    private var criticalWindowSection: some View {
+        VStack(spacing: 32) {
+            VStack(spacing: 12) {
+                Text("10-14 WEEKS").font(.system(size: 44, weight: .black))
+                Text("THE CRITICAL WINDOW")
+                .font(.system(size: 14, weight: .bold))
+                .tracking(4)
+                .opacity(0.7)
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            }
+            Text("Clinical studies show that the first 10-14 weeks of monitoring provide the highest predictive value for treatment adjustment.")
+                .font(.system(size: 18, weight: .medium)).multilineTextAlignment(.center).padding(.horizontal, 24)
+            Link(destination: URL(string: "https://www.aeyronhealth.co/#s6")!) {
+                Text("Request Clinical Access").font(.system(size: 20, weight: .bold))
+                    .foregroundColor(colorScheme == .dark ? .black : .white).frame(maxWidth: .infinity).padding(.vertical, 20)
+                    .background(colorScheme == .dark ? Color.white : Color.black).cornerRadius(24).shadow(color: .black.opacity(0.2), radius: 15, x: 0, y: 10)
+            }
         }
+        .padding(40)
+        .background(accentColor)
+        .foregroundColor(isAlert ? .white : .black)
+        .cornerRadius(56)
+        .padding(.horizontal, 24)
+        .padding(.top, 60)
     }
 
     var actionRow: some View {
@@ -454,6 +511,19 @@ struct AeyronDashboardView: View {
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.red.opacity(0.5), lineWidth: 1))
             }
         }
+        .padding(.horizontal, 24)
+    }
+
+    private var footerButton: some View {
+        Button(action: {}) {
+            HStack {
+                Text("View full patient history in Aeyron Hub")
+                Image(systemName: "arrow.up.right")
+            }
+            .font(.system(size: 16, weight: .medium))
+            .foregroundColor(.secondary)
+            .padding(.vertical, 60)
+        }
     }
 
     var permissionView: some View {
@@ -494,6 +564,63 @@ struct AeyronDashboardView: View {
         case 60..<80: return "HIGH RISK"
         default:      return "CRITICAL"
         }
+    }
+}
+
+// MARK: - Symptom Card (new UI)
+
+struct AeyronSymptomCard: View {
+    let number: Int
+    let title: String
+    let value: String
+    var isAlert: Bool = false
+    @Environment(\.colorScheme) private var colorScheme
+
+    private var circleFill: Color {
+        if isAlert { return Color.red.opacity(0.2) }
+        return colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05)
+    }
+    private var textColor: Color {
+        if isAlert { return .red }
+        return colorScheme == .dark ? .white : .primary
+    }
+    private var cardBackground: Color {
+        if isAlert { return Color.red.opacity(0.1) }
+        return colorScheme == .dark ? Color.white.opacity(0.05) : Color.white
+    }
+    private var strokeColor: Color {
+        if isAlert { return Color.red.opacity(0.5) }
+        return colorScheme == .dark ? Color.white.opacity(0.1) : Color.black.opacity(0.05)
+    }
+
+    var body: some View {
+        HStack(spacing: 20) {
+            ZStack {
+                Circle().fill(circleFill).frame(width: 50, height: 50)
+                Text("\(number)").font(.system(size: 22, weight: .bold)).foregroundColor(textColor)
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title.uppercased())
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text(value)
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(textColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+            }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            Spacer()
+            if isAlert {
+                Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.red).font(.system(size: 28))
+            }
+        }
+        .padding(20)
+        .background(cardBackground)
+        .cornerRadius(24)
+        .overlay(RoundedRectangle(cornerRadius: 24).stroke(strokeColor, lineWidth: 1))
     }
 }
 
