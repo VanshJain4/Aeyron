@@ -147,9 +147,9 @@ The architecture already separates concerns: each modality POSTs independently t
 ## User Flow
 
 1. **Open the dashboard** → webcam activates, face detection starts automatically
-2. **Click Connect** → backend link established, polling begins
-3. **Start the Gradio voice app** → speak into your mic, voice + cough data flows to dashboard
-4. **Point iPhone at your face** → heart rate, breathing, stress stream in
+2. **Click App Clip** → backend link established, polling begins
+3. **Starts itself with the in built-voice** → speak into your mic, voice + cough data flows to dashboard
+4. **Captures** → heart rate, breathing, stress stream in
 5. **Watch the score** → combined PD risk updates every second, modality badges light up green/orange/red
 6. **Review the log** → timestamped entries show exactly which signals triggered
 
